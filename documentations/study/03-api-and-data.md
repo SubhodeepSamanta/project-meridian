@@ -57,6 +57,15 @@ docker compose build meridian-api
 docker compose run --rm --no-deps meridian-api pytest -q
 ```
 
+For host-side development, use the repository-managed Windows virtual environment:
+
+```powershell
+pwsh -File .\scripts\setup_backend_venv.ps1
+pwsh -File .\scripts\run_backend_tests.ps1
+```
+
+The Dockerfile creates the matching Linux environment at `/opt/venv`. Docker remains the integration environment, while `apps/api/.venv` gives the developer an isolated interpreter for fast edits and tests. Both install the pinned `apps/api/requirements.txt` contract.
+
 Start the real services and inspect health:
 
 ```powershell

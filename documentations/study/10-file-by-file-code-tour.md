@@ -49,9 +49,10 @@ The important Compose lesson is namespace awareness. A URL that works from Windo
 - Line 1 starts a `step_cli` build stage from the same pinned CA image.
 - Line 3 starts the smaller Python runtime stage.
 - Line 5 copies only the `step` executable into the Python image. The API can call the CLI without installing an entire CA image as its application runtime.
-- Lines 7–9 choose `/app`, copy the dependency manifest, and install Python dependencies without retaining pip's cache.
-- Lines 11–12 copy application and test source. Including tests in the image allows the exact runtime image to run `pytest`.
-- Line 14 gives Uvicorn's default command; Compose can override it explicitly.
+- Lines 7–9 choose `/app` and copy the dependency manifest.
+- Lines 10–12 create `/opt/venv` inside the image and install Python dependencies there without retaining pip's cache. The `PATH` environment variable makes every later `pytest`/`uvicorn` command use that environment.
+- Lines 13–14 copy application and test source. Including tests in the image allows the exact runtime image to run `pytest`.
+- Line 16 gives Uvicorn's default command; Compose can override it explicitly.
 
 ### `infrastructure/softhsm/Dockerfile`
 
@@ -250,7 +251,7 @@ Every script changes into the repository root first and uses an `Invoke-Required
 ### `scripts/run_all_checks.ps1`
 
 - Lines 1–4 enable stop-on-error, resolve the root, and define the helper.
-- Lines 19–26 run Compose validation, foundation, mTLS, API image/tests, policy, HSM, and incident checks in that order.
+- Lines 19–27 run Compose validation, local backend-venv tests, foundation, mTLS, API image/tests, policy, HSM, and incident checks in that order.
 - Lines 28–34 build the frontend, start API/web, poll `/api/health`, and fail if the proxy is not healthy.
 - Line 41 prints `FULL_STACK_CHECKS: PASS` only after every earlier command succeeded.
 

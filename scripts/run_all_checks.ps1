@@ -17,6 +17,7 @@ function Invoke-RequiredCommand {
 }
 
 Invoke-RequiredCommand docker @("compose", "config", "--quiet")
+Invoke-RequiredCommand pwsh @("-NoProfile", "-File", (Join-Path $projectRoot "scripts\run_backend_tests.ps1"))
 Invoke-RequiredCommand pwsh @("-NoProfile", "-File", (Join-Path $projectRoot "scripts\run_foundation.ps1"))
 Invoke-RequiredCommand pwsh @("-NoProfile", "-File", (Join-Path $projectRoot "scripts\run_mtls.ps1"))
 Invoke-RequiredCommand docker @("compose", "build", "meridian-api")

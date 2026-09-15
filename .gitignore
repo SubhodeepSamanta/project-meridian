@@ -25,8 +25,11 @@ infrastructure/step-ca/hsm-runtime/
 # generated development caches
 __pycache__/
 .pytest_cache/
+*.db
 node_modules/
 dist/
+.venv/
+venv/
 **/*.tsbuildinfo
 apps/web/vite.config.js
 apps/web/vite.config.d.ts

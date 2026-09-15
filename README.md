@@ -14,6 +14,7 @@ Requirements:
 
 - Docker Desktop running
 - Git
+- Python 3.12
 - PowerShell
 
 From this directory, run:
@@ -39,6 +40,15 @@ docker compose build meridian-api
 docker compose up -d meridian-api
 Invoke-RestMethod http://localhost:8000/health
 ```
+
+For local backend development, create and use the Windows virtual environment:
+
+```powershell
+pwsh -File .\scripts\setup_backend_venv.ps1
+pwsh -File .\scripts\run_backend_tests.ps1
+```
+
+The backend Docker image also installs its dependencies into `/opt/venv`; the container and local workflow therefore use isolated Python environments rather than a global interpreter.
 
 The API stores local synthetic state under `.local/api`, which is ignored by Git.
 
