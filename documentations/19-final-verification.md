@@ -7,6 +7,7 @@ The local POC now contains:
 - a repeatable Docker `step-ca` foundation;
 - two-service certificate-required mTLS;
 - a FastAPI modular monolith with SQLite inventory and hash-linked audit events;
+- an audit integrity endpoint and dashboard verification badge that recompute the hash chain;
 - identity registration, certificate issuance, renewal, revocation, quarantine, and replacement;
 - deterministic agent policy with allow, deny, and human approval-required decisions;
 - a SoftHSM2/PKCS#11-backed CA simulation using `step-ca:hsm`;
@@ -26,7 +27,7 @@ The verified run completed with:
 ```text
 VALID_MTLS: PASS
 INVALID_MTLS: EXPECTED_FAILURE
-10 passed
+16 passed
 ALLOWED_ACTION: PASS
 UNAUTHORIZED_ACTION: EXPECTED_DENIAL
 HIGH_RISK_APPROVAL: PASS

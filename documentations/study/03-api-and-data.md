@@ -48,6 +48,10 @@ An audit record contains `sequence`, `previous_event_hash`, and `event_hash`. Th
 
 This gives tamper evidence. It does not prove who wrote the database, prevent deletion, or provide an independent trusted timestamp. Those are intentional future exercises.
 
+The API also exposes `GET /audit/integrity`. It recomputes every event hash in sequence, checks that each link points to the previous event, and reports the first broken sequence instead of merely displaying a decorative chain. This makes the teaching surface honest: “linked” means structurally linked, while “verified” means the stored contents still match the hashes.
+
+Certificate lifecycle invariants are enforced at the route boundary. Only an `active` identity can receive a certificate or open a compromise incident. Issuing a new certificate retires all previous active credentials, and revoking a retired credential does not revoke the identity's current credential. These rules keep the single `certificate_fingerprint` pointer and the certificate inventory consistent.
+
 ## 6. Commands used
 
 Build the API image and run its tests:
@@ -82,6 +86,8 @@ The manual verification also called `POST /identities`, `POST /identities/{id}/c
 - Serializing an ORM object's `__dict__` would have leaked `_sa_instance_state` and coupled the API to SQLAlchemy internals. Explicit response mapping is slightly more code but safer and more stable.
 - Fake-CA tests alone could have missed a broken executable path, trust mount, or provisioner configuration. The real API container check caught those classes of integration problem.
 - Adding `result_payload` to the action table exposed an important migration lesson: SQLAlchemy `create_all` creates missing tables but does not alter an existing table. A small startup migration adds this nullable-in-practice defaulted field while preserving existing synthetic evidence.
+- A second certificate could originally leave two rows marked active, and revoking an older retired row could accidentally revoke the identity. The lifecycle helper now retires prior active rows on issuance/renewal and only revokes the identity when the revoked row is its current fingerprint.
+- A CA subprocess timeout could originally bubble out of the health route as a 500. The adapter now treats executable, timeout, and subprocess failures as unavailable health or a controlled `StepCaError`.
 
 ## 8. What is not solved yet
 

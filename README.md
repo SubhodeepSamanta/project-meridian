@@ -6,7 +6,7 @@ This is learning and demonstration software. It is not a production certificate 
 
 ## Current status
 
-The repository has completed the certificate foundation, service mTLS, API/data, policy/agent-action, protected-key-boundary, incident/recovery, React/Tailwind dashboard, study-guide, and final verification milestones. The web console uses Tailwind utilities plus a small authored CSS layer for its 3D trust topology and editorial visual system.
+The repository has completed the certificate foundation, service mTLS, API/data, policy/agent-action, protected-key-boundary, incident/recovery, React/Tailwind dashboard, verified audit evidence, study-guide, and final verification milestones. The web console uses Tailwind utilities plus a small authored CSS layer for its 3D trust topology and editorial visual system.
 
 ## Run the foundation milestone
 

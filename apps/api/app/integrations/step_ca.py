@@ -62,23 +62,38 @@ class StepCaClient:
         self.certificate_directory = Path(certificate_directory)
         self.runner = runner
 
+    def _run(self, command: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+        try:
+            return self.runner(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            raise StepCaError("certificate authority command was unavailable") from error
+
     def health(self) -> bool:
-        result = self.runner(
-            [
-                "step",
-                "ca",
-                "health",
-                "--ca-url",
-                self.ca_url,
-                "--root",
-                self.root_path,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
-        )
-        return result.returncode == 0 and result.stdout.strip() == "ok"
+        try:
+            result = self.runner(
+                [
+                    "step",
+                    "ca",
+                    "health",
+                    "--ca-url",
+                    self.ca_url,
+                    "--root",
+                    self.root_path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return False
+        return result.returncode == 0 and (result.stdout or "").strip() == "ok"
 
     def issue_certificate(
         self,
@@ -86,7 +101,10 @@ class StepCaClient:
         sans: Sequence[str],
         validity: str = "24h",
     ) -> IssuedCertificate:
-        self.certificate_directory.mkdir(parents=True, exist_ok=True)
+        try:
+            self.certificate_directory.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            raise StepCaError("certificate output directory is unavailable") from error
         certificate_path = self.certificate_directory / f"{_safe_name(subject)}-{uuid4()}.crt"
         key_path = self.certificate_directory / f"{_safe_name(subject)}-{uuid4()}.key"
         command = [
@@ -111,15 +129,9 @@ class StepCaClient:
         for san in sans:
             command.extend(["--san", san])
 
-        result = self.runner(
-            command,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
+        result = self._run(command, timeout=30)
         if result.returncode != 0:
-            raise StepCaError("certificate issuance failed: " + result.stderr[-500:])
+            raise StepCaError("certificate issuance failed: " + (result.stderr or "")[-500:])
 
         try:
             certificate = x509.load_pem_x509_certificate(certificate_path.read_bytes())
@@ -140,7 +152,7 @@ class StepCaClient:
 
     def revoke_certificate(self, serial_number: str) -> None:
         cli_serial = _serial_for_revoke(serial_number)
-        token_result = self.runner(
+        token_result = self._run(
             [
                 "step",
                 "ca",
@@ -156,22 +168,22 @@ class StepCaClient:
                 "--provisioner-password-file",
                 self.password_file,
             ],
-            capture_output=True,
-            text=True,
             timeout=30,
-            check=False,
         )
         if token_result.returncode != 0:
-            raise StepCaError("certificate revocation authorization failed: " + token_result.stderr[-500:])
+            raise StepCaError(
+                "certificate revocation authorization failed: "
+                + (token_result.stderr or "")[-500:]
+            )
 
         token_matches = re.findall(
             r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",
-            token_result.stdout,
+            token_result.stdout or "",
         )
         if not token_matches:
             raise StepCaError("certificate revocation authorization returned no token")
 
-        result = self.runner(
+        result = self._run(
             [
                 "step",
                 "ca",
@@ -184,10 +196,7 @@ class StepCaClient:
                 "--root",
                 self.root_path,
             ],
-            capture_output=True,
-            text=True,
             timeout=30,
-            check=False,
         )
         if result.returncode != 0:
-            raise StepCaError("certificate revocation failed: " + result.stderr[-500:])
+            raise StepCaError("certificate revocation failed: " + (result.stderr or "")[-500:])

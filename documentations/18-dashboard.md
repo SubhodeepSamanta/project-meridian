@@ -16,6 +16,7 @@ The interface is a dark, instrument-like control room rather than a generic CRUD
 - the policy gate surfaces human approval as a deliberate pause;
 - the incident theatre shows open versus resolved response state;
 - the audit table exposes sequence numbers, event result, time, and hash-chain linkage.
+- the evidence header verifies the complete hash chain and reports the first broken sequence if stored evidence is tampered with.
 
 The 3D effect is CSS-only and decorative. It does not alter security decisions. The browser never receives a CA private key or a private-key path.
 
@@ -26,6 +27,7 @@ The 3D effect is CSS-only and decorative. It does not alter security decisions. 
 - Pending high-risk actions can be approved from the policy gate.
 - Open incidents can be recovered from the incident theatre.
 - The page polls the API every five seconds and exposes failures instead of replacing them with fake green state.
+- Polls are serialized so a slow request cannot be overtaken by a newer request and overwrite the screen with stale data. Selection is also repaired if the selected identity disappears.
 
 ## Local run
 

@@ -23,6 +23,7 @@ The script validates Compose configuration, reruns the foundation, mTLS, API, po
 - CA foundation: `pwsh -File .\scripts\run_foundation.ps1`
 - service mTLS: `pwsh -File .\scripts\run_mtls.ps1`
 - API tests: `docker compose run --rm --no-deps meridian-api pytest -q`
+- host backend venv: `pwsh -File .\scripts\run_backend_tests.ps1`
 - policy/approval: `pwsh -File .\scripts\run_policy.ps1`
 - SoftHSM/PKCS#11: `pwsh -File .\scripts\run_hsm.ps1`
 - incident/recovery: `pwsh -File .\scripts\run_incident.ps1`
@@ -87,6 +88,18 @@ The required CUA browser helper reported a missing kernel-assets path twice, so 
 ### A source package was hidden by an over-broad ignore rule
 
 The initial `.gitignore` used `**/db/` to keep generated database directories out of Git. That pattern also matched the real Python source package `apps/api/app/db/`, so local tests passed while the first staged commit omitted `database.py` and `models.py`. The final audit caught the ignored source directory, the rule was removed, the database files were added, and the corrected delivery was pushed. The safer lesson is to ignore the specific generated state path (`.local/`) rather than a generic directory name that can collide with source code.
+
+### Lifecycle state could drift from the current credential
+
+Issuing a second certificate originally allowed two database rows to remain `active`, while revoking an older retired row could set the whole identity to `revoked`. Tests now enforce one current active credential: new issuance/renewal retires previous active rows, and identity revocation only follows the current fingerprint. The same tests verify that quarantined or otherwise non-active identities cannot receive new certificates or open duplicate compromise incidents.
+
+### Audit links were displayed without verification
+
+The dashboard showed whether an event had a predecessor hash, but there was no check that the stored contents still produced the stored hash. `AuditService.verify` now checks contiguous sequence numbers, predecessor links, JSON payload shape, and canonical SHA-256 material. `GET /audit/integrity` and the dashboard badge expose the result; a tampered test event is detected at its first invalid sequence.
+
+### Dependency and readiness behavior was nondeterministic
+
+The web container used `npm install` on every startup and Compose only waited for the API process to exist. The web command now uses the lockfile-driven `npm ci`; API, service, and web healthchecks report readiness, and the web waits for a healthy API. This reduces “running but not ready” races during repeatable demos.
 
 ## Troubleshooting order
 

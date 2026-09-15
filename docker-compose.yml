@@ -42,6 +42,12 @@ services:
     depends_on:
       step-ca:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json, ssl, urllib.request; c=ssl.create_default_context(cafile='/certs/ca/root_ca.crt'); c.load_cert_chain('/certs/services/service-a.crt', '/certs/services/service-a.key'); r=urllib.request.urlopen('https://service-a:9443/health', context=c, timeout=2); assert r.status == 200 and json.load(r)['status'] == 'healthy'"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
 
   service-b:
     image: python:3.12-slim
@@ -63,6 +69,12 @@ services:
     depends_on:
       step-ca:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json, ssl, urllib.request; c=ssl.create_default_context(cafile='/certs/ca/root_ca.crt'); c.load_cert_chain('/certs/services/service-b.crt', '/certs/services/service-b.key'); r=urllib.request.urlopen('https://service-b:9444/health', context=c, timeout=2); assert r.status == 200 and json.load(r)['status'] == 'healthy'"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
 
   meridian-api:
     build:
@@ -84,6 +96,12 @@ services:
     depends_on:
       step-ca:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json, urllib.request; r=urllib.request.urlopen('http://localhost:8000/health', timeout=2); assert r.status == 200 and json.load(r)['status'] == 'healthy'"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
   hsm-ca:
     build:
@@ -104,7 +122,7 @@ services:
   meridian-web:
     image: node:22-alpine
     working_dir: /app
-    command: ["sh", "-c", "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0"]
+    command: ["sh", "-c", "npm ci --no-audit --no-fund && npm run dev -- --host 0.0.0.0"]
     environment:
       VITE_API_TARGET: "http://meridian-api:8000"
     volumes:
@@ -113,7 +131,14 @@ services:
     ports:
       - "5173:5173"
     depends_on:
-      - meridian-api
+      meridian-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5173').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
 volumes:
   meridian-web-node-modules:

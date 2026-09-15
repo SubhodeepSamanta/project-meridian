@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
 from app.db.models import AuditEventRecord
-from app.schemas import AuditEventResponse
+from app.domain.audit.service import audit_service
+from app.schemas import AuditEventResponse, AuditIntegrityResponse
 
 
 router = APIRouter(prefix="/audit", tags=["audit"])
@@ -35,3 +36,8 @@ def list_events(session: Session = Depends(get_session)) -> list[AuditEventRespo
         )
         for event in events
     ]
+
+
+@router.get("/integrity", response_model=AuditIntegrityResponse)
+def audit_integrity(session: Session = Depends(get_session)) -> AuditIntegrityResponse:
+    return AuditIntegrityResponse(**audit_service.verify(session).__dict__)

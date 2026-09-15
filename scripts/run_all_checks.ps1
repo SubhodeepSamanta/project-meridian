@@ -34,8 +34,21 @@ try {
 }
 
 Invoke-RequiredCommand docker @("compose", "up", "-d", "meridian-api", "meridian-web")
-$health = Invoke-RestMethod -Uri "http://localhost:5173/api/health" -Method Get
-if ($health.status -ne "healthy") {
+$webHealthy = $false
+for ($attempt = 1; $attempt -le 30; $attempt++) {
+    try {
+        $health = Invoke-RestMethod -Uri "http://localhost:5173/api/health" -Method Get
+        if ($health.status -eq "healthy") {
+            $webHealthy = $true
+            break
+        }
+    } catch {
+        # Vite can still be installing dependencies or opening its port.
+    }
+    Start-Sleep -Seconds 1
+}
+if (-not $webHealthy) {
+    docker compose logs --no-color meridian-web
     throw "The dashboard proxy did not report a healthy API."
 }
 

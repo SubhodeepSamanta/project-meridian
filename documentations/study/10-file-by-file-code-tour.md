@@ -35,12 +35,12 @@ When reading any function, ask four questions:
 This is the runtime topology, not application business logic.
 
 - Lines 1–23 define `step-ca`. The pinned image makes the demo repeatable. Port `9000` is exposed for host inspection. The bind mount puts generated CA state under the ignored runtime directory. The healthcheck runs `step ca health` against the CA root, so “container running” is not confused with “CA ready.”
-- Lines 25–45 define `service-a`. It uses the stock Python image and mounts the simulator read-only. Environment variables tell the simulator its name, port, peer, certificate, private-key, and trusted-root paths. `depends_on` waits for a healthy CA before starting it.
-- Lines 46–65 repeat the same contract for `service-b`, with the peer direction reversed. The duplication is deliberate: two independent identities make mutual TLS visible.
-- Lines 67–87 define `meridian-api`. The Docker build comes from `apps/api`. The database is mounted at `/data`, while the CA root and provisioner password are read-only mounts. The API receives service-to-service DNS name `step-ca`, not host `localhost`.
-- Lines 88–103 define `hsm-ca`. The custom image installs SoftHSM2 into the CGO-enabled `step-ca:hsm` image. The token directory is mounted separately from the CA configuration so the script can remove only the token boundary during the failure test.
-- Lines 104–117 define `meridian-web`. The source is mounted for a fast local loop, while a named volume keeps `node_modules` inside Docker. `VITE_API_TARGET=http://meridian-api:8000` is essential: `localhost` inside this container means the web container itself.
-- Lines 118–119 declare the named dependency volume. It is cache, not source, and is intentionally absent from Git.
+- Lines 25–50 define `service-a`. It uses the stock Python image and mounts the simulator read-only. Environment variables tell the simulator its name, port, peer, certificate, private-key, and trusted-root paths. `depends_on` waits for a healthy CA, while its healthcheck proves an mTLS client can call its own endpoint.
+- Lines 52–77 repeat the same contract for `service-b`, with the peer direction reversed. The duplication is deliberate: two independent identities make mutual TLS visible, and both services now report readiness.
+- Lines 79–104 define `meridian-api`. The Docker build comes from `apps/api`. The database is mounted at `/data`, while the CA root and provisioner password are read-only mounts. The API receives service-to-service DNS name `step-ca`, not host `localhost`; its healthcheck requires a healthy JSON response from the API itself.
+- Lines 106–120 define `hsm-ca`. The custom image installs SoftHSM2 into the CGO-enabled `step-ca:hsm` image. The token directory is mounted separately from the CA configuration so the script can remove only the token boundary during the failure test.
+- Lines 122–141 define `meridian-web`. The source is mounted for a fast local loop, while a named volume keeps `node_modules` inside Docker. `npm ci` follows the lockfile on each container start, `VITE_API_TARGET=http://meridian-api:8000` points at the Compose service, and the healthcheck verifies the Vite server. `localhost` inside this container means the web container itself.
+- Lines 143–144 declare the named dependency volume. It is cache, not source, and is intentionally absent from Git.
 
 The important Compose lesson is namespace awareness. A URL that works from Windows may fail inside a container, and a path that exists on Windows must be translated into the container mount path before application code can use it.
 
@@ -115,14 +115,14 @@ Pydantic schemas are the boundary between untrusted JSON and typed application d
 
 - Lines 1–4 import datetime, `Literal`, and Pydantic primitives.
 - `IdentityCreate` lines 7–12 restrict kind to two known values and bound name, owner, purpose, and action-list shapes.
-- `CertificateIssueRequest` lines 15–17 makes SANs optional and gives a short default lifetime.
-- `ActionRequestCreate` lines 20–23 requires action, target, and the presented certificate fingerprint. The fingerprint is not decorative: the route compares it with the identity's current binding.
+- `CertificateIssueRequest` lines 15–17 makes SANs optional, gives a short default lifetime, and restricts validity to step-ca duration syntax such as `24h`.
+- `ActionRequestCreate` lines 20–27 requires action, target, and a 64-character hexadecimal SHA-256 certificate fingerprint. The fingerprint is not decorative: the route compares it with the identity's current binding.
 - `ActionRequestResponse` lines 26–38 enables ORM attribute reading and exposes the safe action result.
 - `IncidentCreate` lines 41–43 requires an identity and a bounded reason.
 - `IncidentResponse` lines 46–54 represents open or resolved incident state.
 - `IdentityResponse` lines 57–68 exposes safe identity metadata and the parsed allow-list.
 - `CertificateResponse` lines 71–86 exposes lifecycle status and cryptographic metadata without private-key material.
-- `AuditEventResponse` lines 89–104 exposes parsed payload plus both hash-link fields and sequence.
+- `AuditEventResponse` lines 89–104 exposes parsed payload plus both hash-link fields and sequence. `AuditIntegrityResponse` reports whether the complete chain was recomputed successfully and where validation stopped if not.
 
 ## 4. Database session, domain logic, and the CA boundary
 
@@ -132,7 +132,7 @@ Pydantic schemas are the boundary between untrusted JSON and typed application d
 
 ### `apps/api/app/domain/audit/service.py`
 
-`AuditService.record` at lines 14–64 is the audit invariant in one place.
+`AuditService.record` and `AuditService.verify` are the audit invariants in one place.
 
 - Lines 14–26 define required evidence fields and optional correlation/incident/payload metadata.
 - Lines 27–29 fetch the previous highest-sequence event so the next event can point backward.
@@ -143,7 +143,8 @@ Pydantic schemas are the boundary between untrusted JSON and typed application d
 - Lines 45–47 serialize compactly and compute SHA-256.
 - Lines 48–61 construct the ORM record, repeating the fields that must be queryable and storing the hash-link values.
 - Lines 62–64 add and flush the record. Flush makes the event visible inside the current transaction without committing the caller's larger state change.
-- Line 67 creates the shared `audit_service` instance.
+- `verify` reads events in sequence order, checks contiguous numbering and predecessor links, parses payload objects, rebuilds the canonical material, and compares every stored SHA-256 hash. It returns a structured first-failure result instead of raising a generic error.
+- The final line creates the shared `audit_service` instance.
 
 This is tamper-evidence, not an external immutable log. A database administrator could rewrite both rows and hashes. The advanced chapter explains what production would add.
 
@@ -176,7 +177,8 @@ This adapter keeps CLI details out of routes.
 - `_as_utc` lines 37–40 normalizes naive or offset-aware timestamps.
 - `_serial_for_revoke` lines 43–47 preserves decimal serials and converts legacy hexadecimal inventory values to the decimal CLI form.
 - `StepCaClient.__init__` lines 51–63 stores endpoints, paths, the certificate directory, and an injectable runner. Injection makes subprocess behavior testable without a live CA.
-- `health` lines 65–81 runs `step ca health` with root verification, captures output, uses a timeout, and returns true only for exit code zero plus exact `ok` output.
+- `_run` centralizes bounded subprocess execution and converts missing executables, timeouts, and other subprocess failures into `StepCaError`.
+- `health` runs `step ca health` with root verification, captures output, uses a timeout, and fails closed to `False` when the CLI is unavailable instead of turning dependency loss into an API 500.
 - `issue_certificate` lines 83–139 creates unique output paths, constructs and runs `step ca certificate`, appends every SAN, bounds the timeout, parses the PEM, and extracts serial, subject, issuer, validity, public-key algorithm, and SHA-256 fingerprint. The private key remains only at the ignored runtime path.
 - `revoke_certificate` lines 141–193 implements the two-step CLI contract: normalize serial; request a short-lived revoke token; reject a missing token; pass serial plus token to `step ca revoke`; translate all nonzero results into `StepCaError`.
 
@@ -206,9 +208,9 @@ The injected client is the seam between fast unit tests and real Docker integrat
 - `certificate_lifecycle_status` lines 36–47 preserves explicit `revoked`/`retired`, normalizes timezones, distinguishes expired from expiring within six hours, and otherwise returns active.
 - `list_certificates` lines 50–55 returns certificates in creation order.
 - `list_expiring_certificates` lines 58–71 queries active records and applies the expiry predicate.
-- `issue_certificate` lines 79–142 loads the identity, blocks quarantined/revoked/suspended states, chooses SANs, calls step-ca, audits integration failure, creates the metadata row, updates the current fingerprint, audits success, commits, refreshes, and returns.
-- `revoke_certificate` lines 145–186 is idempotent for already-revoked rows, delegates the CA operation, audits failures, marks certificate and identity revoked, audits success, and returns metadata.
-- `renew_certificate` lines 189–257 blocks retired/revoked certificates and inactive identities, issues a replacement, retires the old record, binds the new fingerprint, audits both IDs, and returns old/new evidence together.
+- `issue_certificate` loads the identity, requires the exact `active` state, chooses SANs, calls step-ca, retires any previous active credentials, audits integration failure/success, updates the current fingerprint, commits, refreshes, and returns.
+- `revoke_certificate` is idempotent for already-revoked rows, delegates the CA operation, audits failures, marks the certificate revoked, and revokes the identity only when that certificate is its current fingerprint.
+- `renew_certificate` blocks retired/revoked certificates and inactive identities, issues a replacement, retires all prior active records, binds the new fingerprint, audits both IDs, commits, and returns old/new evidence together.
 
 ### `apps/api/app/api/routes/actions.py`
 
@@ -230,7 +232,7 @@ The fingerprint comparison proves credential-to-identity binding. The policy ser
 
 ### `apps/api/app/api/routes/audit.py`
 
-`list_events` lines 15–37 queries sequence order and explicitly rebuilds each response. `json.loads` turns stored payload text back into an object. Returning both hash fields lets the dashboard show a genesis event versus a linked event.
+`list_events` queries sequence order and explicitly rebuilds each response. `json.loads` turns stored payload text back into an object. `audit_integrity` delegates to `AuditService.verify` and exposes the result as a read-only evidence check. Returning both hash fields lets the dashboard show a genesis event versus a linked event while the integrity response says whether those links are valid.
 
 ## 6. The mTLS simulator
 
@@ -252,7 +254,7 @@ Every script changes into the repository root first and uses an `Invoke-Required
 
 - Lines 1–4 enable stop-on-error, resolve the root, and define the helper.
 - Lines 19–27 run Compose validation, local backend-venv tests, foundation, mTLS, API image/tests, policy, HSM, and incident checks in that order.
-- Lines 28–34 build the frontend, start API/web, poll `/api/health`, and fail if the proxy is not healthy.
+- Lines 28–47 build the frontend, start API/web, poll `/api/health` for up to 30 seconds while Vite becomes ready, and fail with web logs if the proxy never becomes healthy.
 - Line 41 prints `FULL_STACK_CHECKS: PASS` only after every earlier command succeeded.
 
 ### `scripts/run_foundation.ps1`
@@ -339,7 +341,7 @@ Lines 1–4 import React, ReactDOM, the root component, and CSS. Lines 6–9 fin
 
 - Lines 1–80 define TypeScript mirrors of health, identity, certificate, action, incident, audit, and aggregate snapshot JSON.
 - `request<T>` lines 84–100 is the typed fetch boundary. It merges JSON headers, preserves caller options, converts non-2xx responses into useful errors, and returns decoded JSON as `T`.
-- `loadSnapshot` lines 102–112 makes six requests concurrently with `Promise.all`; the dashboard gets one coherent refresh cycle.
+- `loadSnapshot` requests seven resources concurrently with `Promise.all`, including audit integrity; the dashboard gets one coherent refresh cycle.
 - `createIdentity` lines 114–122 posts a validated identity payload.
 - `issueCertificate` lines 124–129 posts one SAN and the 24-hour demo lifetime.
 - `quarantineIdentity` lines 131–133 posts the lifecycle transition.
@@ -352,11 +354,11 @@ Lines 1–4 import React, ReactDOM, the root component, and CSS. Lines 6–9 fin
 
 - Lines 1–16 import React hooks, API types, and operations.
 - Lines 18–25 define a safe empty initial snapshot so the first render has no fake security data.
-- `formatAge` lines 27–33 turns timestamps into compact relative text; `formatDate` lines 35–40 formats nullable ISO values; `shortId` lines 42–44 abbreviates long identifiers; `tone` lines 46–51 maps domain states to semantic colors.
+- `formatAge` and `formatDate` guard against invalid timestamps; `shortId` abbreviates long identifiers; `tone` maps domain states plus audit verification to semantic colors.
 - `StatusPill` lines 53–55 and `SectionEyebrow` lines 57–59 are the two reusable presentational components.
 - `App` lines 61–269 owns the live screen.
   - Lines 62–67 define snapshot, selection, notice, connection, busy, and evidence-view state.
-  - `refresh` lines 69–78 loads the API snapshot, clears connection errors, and selects the first identity only when nothing is selected.
+  - `refresh` loads the API snapshot, clears connection errors, preserves a still-existing selection, and serializes overlapping polls so a slow request cannot overwrite the screen with stale data.
   - The `useEffect` at lines 80–84 performs an immediate load, starts a five-second poll, and cleans up the interval.
   - Lines 86–98 derive selected identity/certificates, active certificate, pending approvals, open incidents, expiry radar, recovery completion, narrative step, and displayed audit rows.
   - `perform` lines 100–112 centralizes busy-state handling, notices, refresh-after-write, error display, and cleanup.
@@ -368,7 +370,7 @@ Lines 1–4 import React, ReactDOM, the root component, and CSS. Lines 6–9 fin
   - Lines 218–223 render Observe → Decide → Contain → Recover progress; `storyStep` never pretends recovery happened.
   - Lines 225–252 render the identity registry and selected identity panel. Rows are real buttons, selected state is explicit, permissions become tags, fingerprint/algorithm are shown, and actions call the real API.
   - Lines 254–258 render incident theatre and the policy approval gate.
-  - Lines 260–262 render the audit table, optional full sequence, hash-link indicator, and honest synthetic/local footer.
+  - Lines 260–262 render the audit table, optional full sequence, hash-link indicator, verified-chain badge, and honest synthetic/local footer.
 - Line 269 exports the root component.
 
 ### `apps/web/src/styles.css`

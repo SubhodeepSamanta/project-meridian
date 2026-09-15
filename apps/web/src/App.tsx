@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionRequest,
   AuditEvent,
@@ -22,10 +22,13 @@ const emptySnapshot: Snapshot = {
   actions: [],
   incidents: [],
   events: [],
+  integrity: null,
 };
 
 function formatAge(value: string): string {
-  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) return "unknown";
+  const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
   if (seconds < 60) return `${seconds}s ago`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
@@ -34,9 +37,9 @@ function formatAge(value: string): string {
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(
-    new Date(value),
-  );
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "unknown";
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
 function shortId(value: string): string {
@@ -44,9 +47,9 @@ function shortId(value: string): string {
 }
 
 function tone(value: string): string {
-  if (["healthy", "active", "allow", "approved", "success", "resolved", "protected"].includes(value)) return "good";
+  if (["healthy", "active", "allow", "approved", "success", "resolved", "protected", "verified"].includes(value)) return "good";
   if (["pending", "approval_required", "expiring_soon", "recovery_in_progress"].includes(value)) return "warn";
-  if (["deny", "failure", "revoked", "quarantined", "expired", "unavailable", "open"].includes(value)) return "bad";
+  if (["deny", "failure", "revoked", "quarantined", "expired", "unavailable", "open", "integrity_failed"].includes(value)) return "bad";
   return "quiet";
 }
 
@@ -65,15 +68,32 @@ function App() {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [showAllEvents, setShowAllEvents] = useState(false);
+  const refreshInFlight = useRef<Promise<void> | null>(null);
 
   const refresh = useCallback(async () => {
+    if (refreshInFlight.current) {
+      await refreshInFlight.current;
+      return;
+    }
+    const request = (async () => {
+      try {
+        const next = await loadSnapshot();
+        setSnapshot(next);
+        setConnectionError(null);
+        setSelectedId((current) =>
+          next.identities.some((identity) => identity.id === current)
+            ? current
+            : next.identities[0]?.id ?? null,
+        );
+      } catch (error) {
+        setConnectionError(error instanceof Error ? error.message : "API unavailable");
+      }
+    })();
+    refreshInFlight.current = request;
     try {
-      const next = await loadSnapshot();
-      setSnapshot(next);
-      setConnectionError(null);
-      setSelectedId((current) => current ?? next.identities[0]?.id ?? null);
-    } catch (error) {
-      setConnectionError(error instanceof Error ? error.message : "API unavailable");
+      await request;
+    } finally {
+      if (refreshInFlight.current === request) refreshInFlight.current = null;
     }
   }, []);
 
@@ -257,7 +277,7 @@ function App() {
             <div className="panel decision-panel"><div className="panel-heading"><div><SectionEyebrow number="05" label="POLICY GATE" /><h2>Intent meets authority.</h2></div><span className="panel-count">{pendingActions.length.toString().padStart(2, "0")} pending</span></div><div className="decision-list">{pendingActions.length === 0 && <div className="empty-state">No actions waiting for a human. Run the trust sequence to open an approval gate.</div>}{pendingActions.slice(-4).reverse().map((action: ActionRequest) => { const identity = snapshot.identities.find((item) => item.id === action.identity_id); return <div className="decision-card" key={action.id}><div className="decision-mark">!</div><div className="decision-content"><div className="decision-top"><strong>{action.action}</strong><span className="risk-label">{action.risk_level} risk</span></div><p>{identity?.name ?? shortId(action.identity_id)} <span>→</span> {action.target}</p><small>{action.reason}</small><button className="approve-button" disabled={busy !== null} onClick={() => void perform("approve", () => approveAction(action.id), "Operator approval recorded; action completed.")}>Approve action <span>↗</span></button></div></div>; })}</div></div>
           </section>
 
-          <section className="evidence-section" id="evidence"><div className="panel evidence-panel"><div className="panel-heading"><div><SectionEyebrow number="06" label="AUDIT EVIDENCE" /><h2>The system remembers.</h2></div><button className="text-button" onClick={() => setShowAllEvents((value) => !value)}>{showAllEvents ? "Show recent" : "View full sequence"} ↗</button></div><div className="audit-table"><div className="audit-table-head"><span>SEQ</span><span>EVENT</span><span>ACTOR / SUBJECT</span><span>RESULT</span><span>WHEN</span><span>CHAIN</span></div>{displayedEvents.length === 0 && <div className="empty-state">Audit evidence will appear here after the first state change.</div>}{displayedEvents.map((event: AuditEvent) => <div className="audit-row" key={event.id}><span className="audit-seq">{event.sequence.toString().padStart(3, "0")}</span><span className="audit-event"><i className={`event-dot ${tone(event.result)}`} /><strong>{event.event_type.replaceAll("_", " ")}</strong></span><span className="audit-actor">{event.actor}<small>{shortId(event.subject)}</small></span><StatusPill value={event.result} /><span className="audit-time">{formatAge(event.timestamp)}</span><span className="chain-link">{event.previous_event_hash ? "linked ↗" : "genesis ◇"}</span></div>)}</div></div></section>
+          <section className="evidence-section" id="evidence"><div className="panel evidence-panel"><div className="panel-heading"><div><SectionEyebrow number="06" label="AUDIT EVIDENCE" /><h2>The system remembers.</h2></div><div className="integrity-meta"><StatusPill value={snapshot.integrity ? snapshot.integrity.valid ? "verified" : "integrity_failed" : "checking"} /><span>{snapshot.integrity ? `${snapshot.integrity.checked_through_sequence}/${snapshot.integrity.event_count} checked` : "waiting for evidence"}</span><button className="text-button" onClick={() => setShowAllEvents((value) => !value)}>{showAllEvents ? "Show recent" : "View full sequence"} ↗</button></div></div><div className="audit-table"><div className="audit-table-head"><span>SEQ</span><span>EVENT</span><span>ACTOR / SUBJECT</span><span>RESULT</span><span>WHEN</span><span>CHAIN</span></div>{displayedEvents.length === 0 && <div className="empty-state">Audit evidence will appear here after the first state change.</div>}{displayedEvents.map((event: AuditEvent) => <div className="audit-row" key={event.id}><span className="audit-seq">{event.sequence.toString().padStart(3, "0")}</span><span className="audit-event"><i className={`event-dot ${tone(event.result)}`} /><strong>{event.event_type.replaceAll("_", " ")}</strong></span><span className="audit-actor">{event.actor}<small>{shortId(event.subject)}</small></span><StatusPill value={event.result} /><span className="audit-time">{formatAge(event.timestamp)}</span><span className="chain-link">{event.previous_event_hash ? "linked ↗" : "genesis ◇"}</span></div>)}</div>{snapshot.integrity && !snapshot.integrity.valid && <div className="integrity-warning" role="alert">Integrity check stopped at sequence {snapshot.integrity.first_invalid_sequence ?? "unknown"}: {snapshot.integrity.error ?? "audit chain is not valid"}.</div>}</div></section>
 
           <footer className="footer"><span>PROJECT MERIDIAN / DIGITAL TRUST OPERATIONS</span><span>LOCAL POC · SYNTHETIC DATA · NOT PRODUCTION</span><span>BUILDING TRUST, ONE EVENT AT A TIME ✦</span></footer>
         </div>

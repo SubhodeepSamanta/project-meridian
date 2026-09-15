@@ -45,8 +45,8 @@ def open_compromise_incident(
     identity = session.get(IdentityRecord, payload.identity_id)
     if identity is None:
         raise HTTPException(status_code=404, detail="identity not found")
-    if identity.status == "revoked":
-        raise HTTPException(status_code=409, detail="revoked identity cannot open a new compromise incident")
+    if identity.status != "active":
+        raise HTTPException(status_code=409, detail="only an active identity can open a compromise incident")
 
     incident = IncidentRecord(
         id=str(uuid4()),

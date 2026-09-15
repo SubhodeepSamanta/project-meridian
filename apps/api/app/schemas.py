@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,13 +14,17 @@ class IdentityCreate(BaseModel):
 
 class CertificateIssueRequest(BaseModel):
     sans: list[str] = Field(default_factory=list)
-    validity: str = "24h"
+    validity: str = Field(default="24h", pattern=r"^\d+(?:s|m|h|d|w)$")
 
 
 class ActionRequestCreate(BaseModel):
     action: str = Field(min_length=1, max_length=120)
     target: str = Field(min_length=1, max_length=200)
-    certificate_fingerprint: str = Field(min_length=64, max_length=95)
+    certificate_fingerprint: str = Field(
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-fA-F]{64}$",
+    )
 
 
 class ActionRequestResponse(BaseModel):
@@ -34,7 +38,7 @@ class ActionRequestResponse(BaseModel):
     approval_status: str
     decision: str
     reason: str
-    execution_result: dict
+    execution_result: dict[str, Any]
     requested_at: datetime
 
 
@@ -97,8 +101,16 @@ class AuditEventResponse(BaseModel):
     reason: str
     correlation_id: str
     incident_id: str | None
-    payload: dict
+    payload: dict[str, Any]
     previous_event_hash: str | None
     event_hash: str
     sequence: int
     timestamp: datetime
+
+
+class AuditIntegrityResponse(BaseModel):
+    valid: bool
+    event_count: int
+    checked_through_sequence: int
+    first_invalid_sequence: int | None
+    error: str | None

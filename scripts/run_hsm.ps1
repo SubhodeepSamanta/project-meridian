@@ -126,10 +126,7 @@ if ($activeConfig.key -eq $intermediateKeyName) {
     }
 }
 
-# Recreate the container after restoring the bind-mounted token directory. Docker
-# Desktop can retain the old directory handle across a stop/start cycle; a fresh
-# container makes the restored PKCS#11 token visible deterministically.
-Invoke-RequiredCommand docker @("compose", "up", "-d", "--force-recreate", "hsm-ca")
+Invoke-RequiredCommand docker @("compose", "up", "-d", "hsm-ca")
 $hsmContainerId = ((& docker compose ps -a -q hsm-ca) | Select-Object -First 1).Trim()
 if ([string]::IsNullOrWhiteSpace($hsmContainerId)) {
     throw "Docker Compose did not create hsm-ca."
@@ -202,7 +199,10 @@ if (-not $tokenUnavailableObserved) {
     throw "The HSM-backed CA did not fail closed when the token directory was unavailable."
 }
 
-Invoke-RequiredCommand docker @("compose", "up", "-d", "hsm-ca")
+# Recreate the container after restoring the bind-mounted token directory. Docker
+# Desktop can retain the old directory handle across a stop/start cycle; a fresh
+# container makes the restored PKCS#11 token visible deterministically.
+Invoke-RequiredCommand docker @("compose", "up", "-d", "--force-recreate", "hsm-ca")
 $finalContainerId = ((& docker compose ps -a -q hsm-ca) | Select-Object -First 1).Trim()
 if ([string]::IsNullOrWhiteSpace($finalContainerId)) {
     throw "Docker Compose did not expose the HSM container identity after token restoration."

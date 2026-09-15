@@ -70,6 +70,14 @@ export type AuditEvent = {
   timestamp: string;
 };
 
+export type AuditIntegrity = {
+  valid: boolean;
+  event_count: number;
+  checked_through_sequence: number;
+  first_invalid_sequence: number | null;
+  error: string | null;
+};
+
 export type Snapshot = {
   health: Health | null;
   identities: Identity[];
@@ -77,6 +85,7 @@ export type Snapshot = {
   actions: ActionRequest[];
   incidents: Incident[];
   events: AuditEvent[];
+  integrity: AuditIntegrity | null;
 };
 
 const API_ROOT = "/api";
@@ -100,15 +109,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export async function loadSnapshot(): Promise<Snapshot> {
-  const [health, identities, certificates, actions, incidents, events] = await Promise.all([
+  const [health, identities, certificates, actions, incidents, events, integrity] = await Promise.all([
     request<Health>("/health"),
     request<Identity[]>("/identities"),
     request<Certificate[]>("/certificates"),
     request<ActionRequest[]>("/actions"),
     request<Incident[]>("/incidents"),
     request<AuditEvent[]>("/audit/events"),
+    request<AuditIntegrity>("/audit/integrity"),
   ]);
-  return { health, identities, certificates, actions, incidents, events };
+  return { health, identities, certificates, actions, incidents, events, integrity };
 }
 
 export async function createIdentity(input: {

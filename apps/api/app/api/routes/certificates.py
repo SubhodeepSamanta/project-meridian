@@ -47,6 +47,33 @@ def certificate_lifecycle_status(certificate: CertificateRecord) -> str:
     return "active"
 
 
+def retire_active_certificates(
+    session: Session,
+    identity_id: str,
+    *,
+    reason: str,
+) -> None:
+    active_certificates = session.scalars(
+        select(CertificateRecord)
+        .where(
+            CertificateRecord.identity_id == identity_id,
+            CertificateRecord.status == "active",
+        )
+        .order_by(CertificateRecord.created_at)
+    ).all()
+    for previous in active_certificates:
+        previous.status = "retired"
+        audit_service.record(
+            session,
+            event_type="certificate_retired",
+            actor="operator",
+            subject=identity_id,
+            result="success",
+            reason=reason,
+            payload={"certificate_id": previous.id, "fingerprint": previous.fingerprint},
+        )
+
+
 @router.get("/certificates", response_model=list[CertificateResponse])
 def list_certificates(session: Session = Depends(get_session)) -> list[CertificateResponse]:
     certificates = session.scalars(
@@ -85,7 +112,7 @@ def issue_certificate(
     identity = session.get(IdentityRecord, identity_id)
     if identity is None:
         raise HTTPException(status_code=404, detail="identity not found")
-    if identity.status in {"quarantined", "revoked", "suspended"}:
+    if identity.status != "active":
         raise HTTPException(status_code=409, detail="identity is not eligible for certificate issuance")
 
     sans = payload.sans or [identity.name]
@@ -121,6 +148,11 @@ def issue_certificate(
         fingerprint=issued.fingerprint,
         certificate_path=issued.certificate_path,
         key_path=issued.key_path,
+    )
+    retire_active_certificates(
+        session,
+        identity.id,
+        reason="previous active certificate retired when a new certificate was issued",
     )
     session.add(certificate)
     identity.certificate_fingerprint = issued.fingerprint
@@ -171,7 +203,7 @@ def revoke_certificate(
 
     identity = session.get(IdentityRecord, certificate.identity_id)
     certificate.status = "revoked"
-    if identity is not None:
+    if identity is not None and identity.certificate_fingerprint == certificate.fingerprint:
         identity.status = "revoked"
     audit_service.record(
         session,
@@ -233,7 +265,11 @@ def renew_certificate(
         certificate_path=issued.certificate_path,
         key_path=issued.key_path,
     )
-    certificate.status = "retired"
+    retire_active_certificates(
+        session,
+        identity.id,
+        reason="previous active certificate retired during renewal",
+    )
     identity.certificate_fingerprint = issued.fingerprint
     session.add(replacement)
     audit_service.record(

@@ -1,10 +1,14 @@
 from datetime import datetime, timedelta, timezone
-from subprocess import CompletedProcess
+from subprocess import CompletedProcess, TimeoutExpired
 
 from fastapi.testclient import TestClient
+import pytest
+from sqlalchemy import select
 
 from app.core.config import Settings
+from app.db.models import AuditEventRecord
 from app.integrations.step_ca import IssuedCertificate, StepCaError
+from app.integrations.step_ca import StepCaClient
 from app.main import create_app
 
 
@@ -110,6 +114,26 @@ def test_certificate_issuance_returns_metadata_without_private_key() -> None:
             "certificate_issued",
         ]
         assert [event["sequence"] for event in events] == [1, 2]
+
+
+def test_certificate_issue_validates_duration_and_fingerprint_shape() -> None:
+    with make_client() as client:
+        identity = create_identity(client)
+        invalid_duration = client.post(
+            f"/identities/{identity['id']}/certificates",
+            json={"validity": "--not-a-duration"},
+        )
+        assert invalid_duration.status_code == 422
+
+        invalid_fingerprint = client.post(
+            f"/identities/{identity['id']}/actions",
+            json={
+                "action": "read_status",
+                "target": "service-a",
+                "certificate_fingerprint": "not-a-sha256-fingerprint",
+            },
+        )
+        assert invalid_fingerprint.status_code == 422
 
 
 def test_certificate_failure_creates_failure_audit_event() -> None:
@@ -226,6 +250,36 @@ def test_certificate_renewal_retires_old_certificate() -> None:
         assert client.get("/audit/events").json()[-1]["event_type"] == "certificate_renewed"
 
 
+def test_reissuing_certificate_retires_previous_active_credential() -> None:
+    with make_client() as client:
+        identity = create_identity(client)
+        first = issue_identity_certificate(client, identity)
+        second = issue_identity_certificate(client, identity)
+
+        detail = client.get(f"/identities/{identity['id']}").json()
+        certificates = {item["fingerprint"]: item for item in detail["certificates"]}
+        assert certificates[first["fingerprint"]]["status"] == "retired"
+        assert certificates[second["fingerprint"]]["status"] == "active"
+        assert detail["identity"]["certificate_fingerprint"] == second["fingerprint"]
+
+
+def test_revoking_retired_certificate_does_not_revoke_current_identity() -> None:
+    with make_client() as client:
+        identity = create_identity(client)
+        first = issue_identity_certificate(client, identity)
+        second = issue_identity_certificate(client, identity)
+
+        response = client.post(f"/certificates/{first['id']}/revoke")
+
+        assert response.status_code == 200
+        detail = client.get(f"/identities/{identity['id']}").json()
+        certificates = {item["id"]: item for item in detail["certificates"]}
+        assert detail["identity"]["status"] == "active"
+        assert detail["identity"]["certificate_fingerprint"] == second["fingerprint"]
+        assert certificates[first["id"]]["status"] == "revoked"
+        assert certificates[second["id"]]["status"] == "active"
+
+
 def test_compromise_quarantines_revokes_and_recovers_with_replacement() -> None:
     with make_client() as client:
         identity = create_identity(client)
@@ -254,6 +308,80 @@ def test_compromise_quarantines_revokes_and_recovers_with_replacement() -> None:
         assert "incident_opened" in event_types
         assert "certificate_replaced" in event_types
         assert event_types[-1] == "recovery_completed"
+
+
+def test_only_active_identities_can_receive_certificates_or_open_incidents() -> None:
+    with make_client() as client:
+        identity = create_identity(client)
+        quarantined = client.post(f"/identities/{identity['id']}/quarantine")
+        assert quarantined.status_code == 200
+
+        issue = client.post(f"/identities/{identity['id']}/certificates", json={})
+        compromise = client.post(
+            "/incidents/compromise",
+            json={"identity_id": identity["id"], "reason": "duplicate compromise attempt"},
+        )
+        assert issue.status_code == 409
+        assert compromise.status_code == 409
+
+
+def test_audit_integrity_endpoint_verifies_and_detects_tampering() -> None:
+    with make_client() as client:
+        create_identity(client)
+        verified = client.get("/audit/integrity")
+        assert verified.status_code == 200
+        assert verified.json() == {
+            "valid": True,
+            "event_count": 1,
+            "checked_through_sequence": 1,
+            "first_invalid_sequence": None,
+            "error": None,
+        }
+
+        session = client.app.state.session_factory()
+        try:
+            event = session.scalar(select(AuditEventRecord))
+            assert event is not None
+            event.reason = "tampered after the fact"
+            session.commit()
+        finally:
+            session.close()
+
+        tampered = client.get("/audit/integrity")
+        assert tampered.status_code == 200
+        assert tampered.json()["valid"] is False
+        assert tampered.json()["first_invalid_sequence"] == 1
+
+
+def test_step_ca_health_fails_closed_when_cli_times_out() -> None:
+    def timed_out_runner(command: list[str], **kwargs: object) -> CompletedProcess[str]:
+        raise TimeoutExpired(command, timeout=10)
+
+    client = StepCaClient(
+        ca_url="https://step-ca:9000",
+        root_path="/certs/root_ca.crt",
+        password_file="/run/secrets/password",
+        certificate_directory="/data/certificates",
+        runner=timed_out_runner,
+    )
+
+    assert client.health() is False
+
+
+def test_step_ca_issue_failure_handles_missing_cli_output(tmp_path) -> None:
+    def failed_runner(command: list[str], **kwargs: object) -> CompletedProcess[str]:
+        return CompletedProcess(command, 1, stdout=None, stderr=None)
+
+    client = StepCaClient(
+        ca_url="https://step-ca:9000",
+        root_path="/certs/root_ca.crt",
+        password_file="/run/secrets/password",
+        certificate_directory=str(tmp_path),
+        runner=failed_runner,
+    )
+
+    with pytest.raises(StepCaError, match="certificate issuance failed"):
+        client.issue_certificate("agent-alpha", ["agent-alpha"])
 
 
 def test_step_ca_revocation_uses_a_revoke_token() -> None:
