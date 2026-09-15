@@ -1,0 +1,119 @@
+services:
+  step-ca:
+    image: smallstep/step-ca:0.30.2@sha256:a2b17872915c193259b75a5474c398326f41bd199f0842093e52cf4182bc8270
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./infrastructure/step-ca/runtime:/home/step
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "step",
+          "ca",
+          "health",
+          "--ca-url",
+          "https://localhost:9000",
+          "--root",
+          "/home/step/certs/root_ca.crt"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  service-a:
+    image: python:3.12-slim
+    command: ["python", "/app/service.py"]
+    environment:
+      SERVICE_NAME: "service-a"
+      SERVICE_PORT: "9443"
+      PEER_HOST: "service-b"
+      PEER_PORT: "9444"
+      CERT_FILE: "/certs/services/service-a.crt"
+      KEY_FILE: "/certs/services/service-a.key"
+      CA_FILE: "/certs/ca/root_ca.crt"
+    volumes:
+      - ./simulators/services:/app:ro
+      - ./infrastructure/step-ca/runtime/certs:/certs/ca:ro
+      - ./infrastructure/step-ca/runtime/artifacts/services:/certs/services:ro
+    ports:
+      - "9443:9443"
+    depends_on:
+      step-ca:
+        condition: service_healthy
+
+  service-b:
+    image: python:3.12-slim
+    command: ["python", "/app/service.py"]
+    environment:
+      SERVICE_NAME: "service-b"
+      SERVICE_PORT: "9444"
+      PEER_HOST: "service-a"
+      PEER_PORT: "9443"
+      CERT_FILE: "/certs/services/service-b.crt"
+      KEY_FILE: "/certs/services/service-b.key"
+      CA_FILE: "/certs/ca/root_ca.crt"
+    volumes:
+      - ./simulators/services:/app:ro
+      - ./infrastructure/step-ca/runtime/certs:/certs/ca:ro
+      - ./infrastructure/step-ca/runtime/artifacts/services:/certs/services:ro
+    ports:
+      - "9444:9444"
+    depends_on:
+      step-ca:
+        condition: service_healthy
+
+  meridian-api:
+    build:
+      context: ./apps/api
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      MERIDIAN_DATABASE_URL: "sqlite:////data/meridian.db"
+      MERIDIAN_STEP_CA_URL: "https://step-ca:9000"
+      MERIDIAN_STEP_CA_ROOT: "/certs/ca/root_ca.crt"
+      MERIDIAN_STEP_CA_PASSWORD_FILE: "/run/secrets/step_ca_password"
+      MERIDIAN_CERTIFICATE_DIRECTORY: "/data/certificates"
+    volumes:
+      - ./.local/api:/data
+      - ./infrastructure/step-ca/runtime/certs:/certs/ca:ro
+      - ./infrastructure/step-ca/runtime/secrets/password:/run/secrets/step_ca_password:ro
+      - ./infrastructure/step-ca/runtime/artifacts/identities:/data/certificates
+    ports:
+      - "8000:8000"
+    depends_on:
+      step-ca:
+        condition: service_healthy
+
+  hsm-ca:
+    build:
+      context: ./infrastructure/softhsm
+    command: ["/usr/local/bin/step-ca", "--password-file", "/home/step/secrets/password", "/home/step/config/ca.json"]
+    volumes:
+      - ./infrastructure/step-ca/hsm-runtime:/home/step
+      - ./infrastructure/step-ca/hsm-runtime/tokens:/var/lib/softhsm/tokens
+    ports:
+      - "9001:9000"
+    healthcheck:
+      test: ["CMD", "step", "ca", "health", "--ca-url", "https://localhost:9000", "--root", "/home/step/certs/root_ca.crt"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  meridian-web:
+    image: node:22-alpine
+    working_dir: /app
+    command: ["sh", "-c", "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0"]
+    environment:
+      VITE_API_TARGET: "http://meridian-api:8000"
+    volumes:
+      - ./apps/web:/app
+      - meridian-web-node-modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - meridian-api
+
+volumes:
+  meridian-web-node-modules:

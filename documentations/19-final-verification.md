@@ -1,0 +1,54 @@
+# Final verification and acceptance record
+
+## Scope verified
+
+The local POC now contains:
+
+- a repeatable Docker `step-ca` foundation;
+- two-service certificate-required mTLS;
+- a FastAPI modular monolith with SQLite inventory and hash-linked audit events;
+- identity registration, certificate issuance, renewal, revocation, quarantine, and replacement;
+- deterministic agent policy with allow, deny, and human approval-required decisions;
+- a SoftHSM2/PKCS#11-backed CA simulation using `step-ca:hsm`;
+- fail-closed token-unavailable behavior;
+- a React/TypeScript control room with a CSS 3D trust constellation and live API data;
+- repeatable policy, incident, HSM, and all-check scripts;
+- `documentations/study` teaching chapters from fundamentals through advanced limits.
+
+## Acceptance command
+
+From `C:\Users\USER\Desktop\Project Meridian` run:
+
+`pwsh -File .\scripts\run_all_checks.ps1`
+
+The verified run completed with:
+
+```text
+VALID_MTLS: PASS
+INVALID_MTLS: EXPECTED_FAILURE
+10 passed
+ALLOWED_ACTION: PASS
+UNAUTHORIZED_ACTION: EXPECTED_DENIAL
+HIGH_RISK_APPROVAL: PASS
+HSM_SIGNING_PATH: PASS
+NO_DISK_CA_KEY: PASS
+TOKEN_UNAVAILABLE: EXPECTED_FAILURE
+COMPROMISE_CONTAINMENT: PASS
+CERTIFICATE_REPLACEMENT: PASS
+RECOVERY_EVIDENCE: PASS
+FULL_STACK_CHECKS: PASS
+```
+
+The API tests emitted one upstream Starlette deprecation warning; it did not fail the suite. The warning is recorded for future dependency maintenance.
+
+## Runtime state and safety
+
+Generated CA state, SoftHSM token files, synthetic certificates, private keys, API database state, and local dependency caches are ignored by Git. They remain on the local machine for repeatable demos but are not source artifacts. The repository contains no real customer data, real credentials, or real production keys.
+
+## Honest limitations
+
+This is not a production CA, commercial certificate manager, physical HSM, FIPS-validated system, complete revocation infrastructure, authenticated API, or formally certified security product. The action target and agent behavior are deterministic simulators. Browser visual automation was unavailable in this environment, so human visual/accessibility review remains advisable.
+
+## Git delivery
+
+The final delivery uses a normal unsigned Git commit and push. No cosign signing or signed-commit step is part of the workflow. The exact remote and commit result are recorded in the final task handoff after the repository audit.

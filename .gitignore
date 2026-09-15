@@ -1,0 +1,33 @@
+# local configuration
+.env
+.env.*
+!.env.example
+
+# generated local PKI state
+infrastructure/step-ca/runtime/
+infrastructure/step-ca/hsm-runtime/
+.local/
+**/secrets/
+**/db/
+
+# generated credentials and certificates
+**/*.key
+**/*_key
+**/*.jwk
+**/*.p12
+**/*.pfx
+**/*.crt
+**/*.cer
+**/*.pem
+
+# local logs
+*.log
+
+# generated development caches
+__pycache__/
+.pytest_cache/
+node_modules/
+dist/
+**/*.tsbuildinfo
+apps/web/vite.config.js
+apps/web/vite.config.d.ts
