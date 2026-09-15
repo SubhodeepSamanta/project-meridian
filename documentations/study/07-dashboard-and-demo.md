@@ -14,7 +14,7 @@ The goal is not decoration. A good visual surface answers quickly:
 
 ## Visual intuition
 
-The constellation is an orientation map, not a cryptographic graph. The center says “trust graph”; surrounding nodes represent the issuing CA, control API, agents, and mTLS services. Orbit rings suggest boundaries and relationships. The identity registry and audit table carry the actual details.
+The topology is an orientation map, not a cryptographic graph. The center says “trust graph”; surrounding nodes represent the issuing CA, control API, agents, and mTLS services. Orbit rings suggest boundaries and relationships. The identity registry and audit table carry the actual details.
 
 The lifecycle track turns the platform into a story: observe the system, decide an action, contain compromise, and recover with a new credential. Its active state is derived from API evidence, so a running incident changes the story rather than triggering a fake animation.
 
@@ -40,11 +40,12 @@ Run `pwsh -File .\scripts\run_policy.ps1` or `pwsh -File .\scripts\run_incident.
 
 ## Design choices
 
-- Plain CSS keeps the 3D constellation inspectable and avoids a large UI framework for a learning POC.
+- React owns the components and state; Tailwind owns utility styling, focus rings, palette names, shadows, and responsive utility generation.
+- A small bespoke CSS layer keeps the 3D topology inspectable without hiding perspective/transform rules inside a component library.
 - The layout uses responsive grid rules and a reduced-motion media query.
-- The page uses a high-contrast cyan/amber/red status language for healthy, pending, and blocked states.
+- The visual language was deliberately refined toward an editorial operations console: graphite surfaces, ivory type, one signal-lime accent, amber risk, and red failure. It avoids noisy neon gradients and generic AI imagery while retaining purposeful 3D depth.
 - Long lists remain readable through a recent/full audit toggle and compact identity metadata.
-- The `Ignite a live story` control creates unique synthetic names so demonstrations are repeatable without overwriting prior evidence.
+- The `Run the trust sequence` control creates unique synthetic names so demonstrations are repeatable without overwriting prior evidence.
 
 ## Problems and limits
 

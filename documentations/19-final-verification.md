@@ -11,9 +11,9 @@ The local POC now contains:
 - deterministic agent policy with allow, deny, and human approval-required decisions;
 - a SoftHSM2/PKCS#11-backed CA simulation using `step-ca:hsm`;
 - fail-closed token-unavailable behavior;
-- a React/TypeScript control room with a CSS 3D trust constellation and live API data;
+- a React/TypeScript/Tailwind control room with a restrained CSS 3D trust topology and live API data;
 - repeatable policy, incident, HSM, and all-check scripts;
-- `documentations/study` teaching chapters from fundamentals through advanced limits.
+- `documentations/study` teaching chapters from fundamentals through advanced limits, including a file-by-file/function-by-function code tour.
 
 ## Acceptance command
 

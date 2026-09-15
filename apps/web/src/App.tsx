@@ -153,9 +153,9 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
-      <aside className="side-rail">
-        <div className="brand-mark"><span className="brand-orbit" /><span className="brand-word">MERIDIAN</span><span className="brand-sub">TRUST CONTROL</span></div>
+    <main className="app-shell min-h-screen overflow-x-hidden bg-slate-950/0 text-slate-100">
+      <aside className="side-rail shadow-panel">
+        <div className="brand-mark"><span className="brand-orbit" /><span className="brand-word">MERIDIAN</span><span className="brand-sub">TRUST OPERATIONS</span></div>
         <div className="rail-rule" />
         <nav aria-label="Primary navigation">
           <a className="nav-link active" href="#overview"><span className="nav-icon">◈</span>Overview<span className="nav-index">01</span></a>
@@ -171,7 +171,7 @@ function App() {
       </aside>
 
       <section className="content-shell">
-        <header className="topbar">
+        <header className="topbar sticky top-0 z-20 bg-slate-950/60 backdrop-blur-xl">
           <div className="breadcrumb"><span>CONTROL ROOM</span><b>/</b><span className="muted">TRUST OPERATIONS</span></div>
           <div className="top-actions">
             <span className="last-refresh">LIVE POLL / 5 SEC</span>
@@ -183,18 +183,18 @@ function App() {
           <section className="hero-grid">
             <div className="hero-copy">
               <SectionEyebrow number="00" label="THE TRUST SURFACE" />
-              <h1>Trust is not a feeling.<br /><em>It is a live system.</em></h1>
-              <p className="hero-lede">Meridian makes the invisible lifecycle of machine and agent identity visible—from first issuance to the moment a compromised credential is contained.</p>
+              <h1>Make trust legible.<br /><em>Keep it in motion.</em></h1>
+              <p className="hero-lede">Meridian turns machine and agent identity into an observable operating story—from first issuance to the moment a compromised credential is contained.</p>
               <div className="hero-cta-row">
-                <button className="primary-button" onClick={() => void launchStory()} disabled={busy !== null}>
-                  <span className="button-glyph">✦</span>{busy === "story" ? "Building story…" : "Ignite a live story"}<span className="button-arrow">↗</span>
+                <button className="primary-button rounded-sm shadow-aura focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-meridian-cyan/70" onClick={() => void launchStory()} disabled={busy !== null}>
+                  <span className="button-glyph">+</span>{busy === "story" ? "Running sequence…" : "Run the trust sequence"}<span className="button-arrow">↗</span>
                 </button>
-                <a className="text-link" href="#evidence">Trace the evidence <span>↓</span></a>
+                <a className="text-link underline-offset-4 hover:underline" href="#evidence">Trace the evidence <span>↓</span></a>
               </div>
               {(notice || connectionError) && <div className={`notice ${notice?.kind ?? "bad"}`} role="status">{notice?.text ?? `API: ${connectionError}`}</div>}
             </div>
-            <div className="constellation-card" aria-label="Live trust constellation">
-              <div className="card-topline"><span>LIVE TRUST CONSTELLATION</span><span className="coordinates">MERIDIAN / 01</span></div>
+            <div className="constellation-card rounded-xl shadow-panel" aria-label="Live trust constellation">
+              <div className="card-topline"><span>OBSERVED TRUST TOPOLOGY</span><span className="coordinates">MERIDIAN / 01</span></div>
               <div className="constellation-stage">
                 <div className="orbit orbit-a" /><div className="orbit orbit-b" /><div className="orbit orbit-c" />
                 <div className="constellation-line line-one" /><div className="constellation-line line-two" /><div className="constellation-line line-three" />
@@ -209,10 +209,10 @@ function App() {
           </section>
 
           <section className="metrics-grid" aria-label="Trust metrics">
-            <div className="metric-card metric-feature"><div className="metric-label">ACTIVE IDENTITIES <span>01</span></div><strong>{activeIdentities.toString().padStart(2, "0")}</strong><div className="metric-foot"><span className="trend-up">↗</span> registered in trust domain</div><div className="metric-spark"><i /><i /><i /><i /><i /><i /><i /></div></div>
-            <div className="metric-card"><div className="metric-label">EXPIRY RADAR <span>02</span></div><strong>{expiringCertificates.length.toString().padStart(2, "0")}</strong><div className="metric-foot"><span className={expiringCertificates.length ? "trend-warn" : "trend-up"}>{expiringCertificates.length ? "!" : "✓"}</span>{expiringCertificates.length ? " attention required" : " within safe horizon"}</div></div>
-            <div className="metric-card"><div className="metric-label">OPEN INCIDENTS <span>03</span></div><strong>{openIncidents.length.toString().padStart(2, "0")}</strong><div className="metric-foot"><span className={openIncidents.length ? "trend-warn" : "trend-up"}>{openIncidents.length ? "↯" : "✓"}</span>{openIncidents.length ? " containment active" : " no active threats"}</div></div>
-            <div className="metric-card"><div className="metric-label">AUDIT SEQUENCE <span>04</span></div><strong>{snapshot.events.length.toString().padStart(2, "0")}</strong><div className="metric-foot"><span className="trend-up">⌁</span> hash-linked events</div></div>
+            <div className="metric-card metric-feature rounded-xl shadow-panel"><div className="metric-label">ACTIVE IDENTITIES <span>01</span></div><strong>{activeIdentities.toString().padStart(2, "0")}</strong><div className="metric-foot"><span className="trend-up">↗</span> registered in trust domain</div><div className="metric-spark"><i /><i /><i /><i /><i /><i /><i /></div></div>
+            <div className="metric-card rounded-xl shadow-panel"><div className="metric-label">EXPIRY RADAR <span>02</span></div><strong>{expiringCertificates.length.toString().padStart(2, "0")}</strong><div className="metric-foot"><span className={expiringCertificates.length ? "trend-warn" : "trend-up"}>{expiringCertificates.length ? "!" : "✓"}</span>{expiringCertificates.length ? " attention required" : " within safe horizon"}</div></div>
+            <div className="metric-card rounded-xl shadow-panel"><div className="metric-label">OPEN INCIDENTS <span>03</span></div><strong>{openIncidents.length.toString().padStart(2, "0")}</strong><div className="metric-foot"><span className={openIncidents.length ? "trend-warn" : "trend-up"}>{openIncidents.length ? "↯" : "✓"}</span>{openIncidents.length ? " containment active" : " no active threats"}</div></div>
+            <div className="metric-card rounded-xl shadow-panel"><div className="metric-label">AUDIT SEQUENCE <span>04</span></div><strong>{snapshot.events.length.toString().padStart(2, "0")}</strong><div className="metric-foot"><span className="trend-up">⌁</span> hash-linked events</div></div>
           </section>
 
           <section className="story-section">
@@ -223,13 +223,13 @@ function App() {
           </section>
 
           <section className="workspace-grid" id="identities">
-            <div className="panel identities-panel">
+            <div className="panel identities-panel rounded-xl shadow-panel">
               <div className="panel-heading"><div><SectionEyebrow number="02" label="IDENTITY REGISTRY" /><h2>Who is trusted?</h2></div><span className="panel-count">{snapshot.identities.length.toString().padStart(2, "0")} records</span></div>
               <div className="identity-list">
-                {snapshot.identities.length === 0 && <div className="empty-state">No identities yet. Ignite a live story to create the first synthetic agent.</div>}
+                {snapshot.identities.length === 0 && <div className="empty-state">No identities yet. Run the trust sequence to create the first synthetic agent.</div>}
                 {snapshot.identities.map((identity) => {
                   const certificate = identityAction(identity);
-                  return <button className={`identity-row ${identity.id === selectedId ? "selected" : ""}`} key={identity.id} onClick={() => setSelectedId(identity.id)}>
+                  return <button className={`identity-row focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-meridian-cyan ${identity.id === selectedId ? "selected" : ""}`} key={identity.id} onClick={() => setSelectedId(identity.id)}>
                     <span className={`identity-avatar ${identity.kind}`}><span>{identity.kind === "agent" ? "◌" : "⊙"}</span></span>
                     <span className="identity-main"><strong>{identity.name}</strong><small>{identity.kind} / owned by {identity.owner}</small></span>
                     <span className="identity-purpose">{identity.purpose}</span>
@@ -240,13 +240,13 @@ function App() {
               </div>
             </div>
 
-            <div className="panel identity-detail-panel">
+            <div className="panel identity-detail-panel rounded-xl shadow-panel">
               <div className="panel-heading compact"><div><SectionEyebrow number="03" label="SELECTED IDENTITY" /><h2>{selectedIdentity?.name ?? "Awaiting identity"}</h2></div><span className="detail-orb">✦</span></div>
               {selectedIdentity ? <>
                 <div className="detail-meta"><div><span>OWNER</span><strong>{selectedIdentity.owner}</strong></div><div><span>PURPOSE</span><strong>{selectedIdentity.purpose}</strong></div></div>
                 <div className="authority-block"><div className="authority-title"><span>AUTHORITY ENVELOPE</span><em>{selectedIdentity.allowed_actions.length} grants</em></div><div className="tag-cloud">{selectedIdentity.allowed_actions.map((action) => <span key={action}>{action}</span>)}</div></div>
                 <div className="cert-detail"><div className="cert-detail-top"><span>ACTIVE CREDENTIAL</span>{selectedActiveCertificate && <StatusPill value={selectedActiveCertificate.lifecycle_status} />}</div>{selectedActiveCertificate ? <><div className="fingerprint">{selectedActiveCertificate.fingerprint.match(/.{1,8}/g)?.join(" · ")}</div><div className="cert-detail-foot"><span>{selectedActiveCertificate.key_algorithm}</span><span>expires {formatDate(selectedActiveCertificate.not_after)}</span></div></> : <div className="cert-missing">No active certificate. Issue one to unlock policy actions.</div>}</div>
-                <div className="detail-actions"><button className="secondary-button" disabled={busy !== null} onClick={() => void perform("issue", () => issueCertificate(selectedIdentity.id, selectedIdentity.name), "Short-lived certificate issued.")}>{busy === "issue" ? "Issuing…" : "Issue certificate"}</button><button className="ghost-button" disabled={busy !== null || selectedIdentity.status !== "active"} onClick={() => void perform("quarantine", () => quarantineIdentity(selectedIdentity.id), "Identity quarantined.")}>Quarantine</button><button className="ghost-button danger" disabled={busy !== null || selectedIdentity.status === "revoked"} onClick={() => void perform("compromise", () => openCompromise(selectedIdentity.id, "operator-triggered synthetic compromise"), "Compromise contained; incident opened.")}>Simulate compromise</button></div>
+                <div className="detail-actions"><button className="secondary-button rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-meridian-cyan/70" disabled={busy !== null} onClick={() => void perform("issue", () => issueCertificate(selectedIdentity.id, selectedIdentity.name), "Short-lived certificate issued.")}>{busy === "issue" ? "Issuing…" : "Issue certificate"}</button><button className="ghost-button rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-meridian-cyan/70" disabled={busy !== null || selectedIdentity.status !== "active"} onClick={() => void perform("quarantine", () => quarantineIdentity(selectedIdentity.id), "Identity quarantined.")}>Quarantine</button><button className="ghost-button danger rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-meridian-red/70" disabled={busy !== null || selectedIdentity.status === "revoked"} onClick={() => void perform("compromise", () => openCompromise(selectedIdentity.id, "operator-triggered synthetic compromise"), "Compromise contained; incident opened.")}>Simulate compromise</button></div>
               </> : <div className="detail-empty">Select an identity from the registry.</div>}
             </div>
           </section>
@@ -254,7 +254,7 @@ function App() {
           <section className="lower-grid" id="incidents">
             <div className="panel incidents-panel"><div className="panel-heading"><div><SectionEyebrow number="04" label="INCIDENT THEATRE" /><h2>When trust breaks.</h2></div><span className="panel-count">{snapshot.incidents.length.toString().padStart(2, "0")} stories</span></div><div className="incident-list">{snapshot.incidents.length === 0 && <div className="empty-state">No incidents. The quiet is earned by observable controls.</div>}{[...snapshot.incidents].reverse().slice(0, 4).map((incident) => { const owner = snapshot.identities.find((identity) => identity.id === incident.identity_id); return <div className={`incident-card ${incident.status}`} key={incident.id}><div className="incident-spine"><span>{incident.status === "open" ? "↯" : "✓"}</span></div><div className="incident-content"><div className="incident-top"><strong>{incident.reason}</strong><StatusPill value={incident.status} /></div><p>{owner?.name ?? shortId(incident.identity_id)} <span>·</span> opened {formatAge(incident.created_at)}</p>{incident.status === "open" ? <button className="inline-action" disabled={busy !== null} onClick={() => void perform("recover", () => recoverIncident(incident.id), "Replacement credential issued; identity recovered.")}>Begin verified recovery <span>↗</span></button> : <div className="resolved-copy">Recovered {formatDate(incident.resolved_at)} <span>· evidence complete</span></div>}</div></div>; })}</div></div>
 
-            <div className="panel decision-panel"><div className="panel-heading"><div><SectionEyebrow number="05" label="POLICY GATE" /><h2>Intent meets authority.</h2></div><span className="panel-count">{pendingActions.length.toString().padStart(2, "0")} pending</span></div><div className="decision-list">{pendingActions.length === 0 && <div className="empty-state">No actions waiting for a human. Run the story to open an approval gate.</div>}{pendingActions.slice(-4).reverse().map((action: ActionRequest) => { const identity = snapshot.identities.find((item) => item.id === action.identity_id); return <div className="decision-card" key={action.id}><div className="decision-mark">!</div><div className="decision-content"><div className="decision-top"><strong>{action.action}</strong><span className="risk-label">{action.risk_level} risk</span></div><p>{identity?.name ?? shortId(action.identity_id)} <span>→</span> {action.target}</p><small>{action.reason}</small><button className="approve-button" disabled={busy !== null} onClick={() => void perform("approve", () => approveAction(action.id), "Operator approval recorded; action completed.")}>Approve action <span>↗</span></button></div></div>; })}</div></div>
+            <div className="panel decision-panel"><div className="panel-heading"><div><SectionEyebrow number="05" label="POLICY GATE" /><h2>Intent meets authority.</h2></div><span className="panel-count">{pendingActions.length.toString().padStart(2, "0")} pending</span></div><div className="decision-list">{pendingActions.length === 0 && <div className="empty-state">No actions waiting for a human. Run the trust sequence to open an approval gate.</div>}{pendingActions.slice(-4).reverse().map((action: ActionRequest) => { const identity = snapshot.identities.find((item) => item.id === action.identity_id); return <div className="decision-card" key={action.id}><div className="decision-mark">!</div><div className="decision-content"><div className="decision-top"><strong>{action.action}</strong><span className="risk-label">{action.risk_level} risk</span></div><p>{identity?.name ?? shortId(action.identity_id)} <span>→</span> {action.target}</p><small>{action.reason}</small><button className="approve-button" disabled={busy !== null} onClick={() => void perform("approve", () => approveAction(action.id), "Operator approval recorded; action completed.")}>Approve action <span>↗</span></button></div></div>; })}</div></div>
           </section>
 
           <section className="evidence-section" id="evidence"><div className="panel evidence-panel"><div className="panel-heading"><div><SectionEyebrow number="06" label="AUDIT EVIDENCE" /><h2>The system remembers.</h2></div><button className="text-button" onClick={() => setShowAllEvents((value) => !value)}>{showAllEvents ? "Show recent" : "View full sequence"} ↗</button></div><div className="audit-table"><div className="audit-table-head"><span>SEQ</span><span>EVENT</span><span>ACTOR / SUBJECT</span><span>RESULT</span><span>WHEN</span><span>CHAIN</span></div>{displayedEvents.length === 0 && <div className="empty-state">Audit evidence will appear here after the first state change.</div>}{displayedEvents.map((event: AuditEvent) => <div className="audit-row" key={event.id}><span className="audit-seq">{event.sequence.toString().padStart(3, "0")}</span><span className="audit-event"><i className={`event-dot ${tone(event.result)}`} /><strong>{event.event_type.replaceAll("_", " ")}</strong></span><span className="audit-actor">{event.actor}<small>{shortId(event.subject)}</small></span><StatusPill value={event.result} /><span className="audit-time">{formatAge(event.timestamp)}</span><span className="chain-link">{event.previous_event_hash ? "linked ↗" : "genesis ◇"}</span></div>)}</div></div></section>

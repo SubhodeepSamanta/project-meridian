@@ -8,7 +8,6 @@ infrastructure/step-ca/runtime/
 infrastructure/step-ca/hsm-runtime/
 .local/
 **/secrets/
-**/db/
 
 # generated credentials and certificates
 **/*.key

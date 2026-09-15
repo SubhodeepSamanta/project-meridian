@@ -127,7 +127,7 @@ if ($activeConfig.key -eq $intermediateKeyName) {
 }
 
 Invoke-RequiredCommand docker @("compose", "up", "-d", "hsm-ca")
-$hsmContainerId = ((& docker compose ps -q hsm-ca) | Select-Object -First 1).Trim()
+$hsmContainerId = ((& docker compose ps -a -q hsm-ca) | Select-Object -First 1).Trim()
 if ([string]::IsNullOrWhiteSpace($hsmContainerId)) {
     throw "Docker Compose did not create hsm-ca."
 }
@@ -200,9 +200,9 @@ if (-not $tokenUnavailableObserved) {
 }
 
 Invoke-RequiredCommand docker @("compose", "up", "-d", "hsm-ca")
-$finalContainerId = $hsmContainerId
+$finalContainerId = ((& docker compose ps -a -q hsm-ca) | Select-Object -First 1).Trim()
 if ([string]::IsNullOrWhiteSpace($finalContainerId)) {
-    throw "Docker Compose did not retain the HSM container identity after token restoration."
+    throw "Docker Compose did not expose the HSM container identity after token restoration."
 }
 $finalHealthy = $false
 for ($attempt = 1; $attempt -le 30; $attempt++) {

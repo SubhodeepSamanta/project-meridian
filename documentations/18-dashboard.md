@@ -8,7 +8,8 @@ The dashboard makes Meridian's invisible security activity understandable withou
 
 The interface is a dark, instrument-like control room rather than a generic CRUD table:
 
-- a live trust constellation uses restrained CSS perspective, orbit rings, network lines, and protected-boundary nodes;
+- a live trust topology uses restrained CSS perspective, orbit rings, network lines, and protected-boundary nodes;
+- React/Tailwind provides the component and utility system; bespoke CSS is limited to the authored 3D scene, typography tokens, editorial grid, and motion rules;
 - the hero copy frames trust as a lifecycle story;
 - four story beats show observe, decide, contain, and recover;
 - registry rows make ownership, purpose, credential state, and authority visible;
@@ -20,7 +21,7 @@ The 3D effect is CSS-only and decorative. It does not alter security decisions. 
 
 ## Real interactions
 
-- `Ignite a live story` creates a synthetic agent, issues its certificate, records an allowed action, and opens a high-risk approval request.
+- `Run the trust sequence` creates a synthetic agent, issues its certificate, records an allowed action, and opens a high-risk approval request.
 - Identity detail actions issue a certificate, quarantine an identity, or open the compromise flow.
 - Pending high-risk actions can be approved from the policy gate.
 - Open incidents can be recovered from the incident theatre.

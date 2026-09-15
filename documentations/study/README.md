@@ -26,6 +26,7 @@ The chapters are a living record. They are updated after each milestone from act
 7. `07-dashboard-and-demo.md` — how the React dashboard turns security state into evidence
 8. `08-testing-and-troubleshooting.md` — test strategy, repeatability, bugs, fixes, and verification
 9. `09-advanced-topics.md` — trust boundaries, threat modeling, revocation limits, crypto-agility, and future work
+10. `10-file-by-file-code-tour.md` — source-level walkthrough of every app, route, function, script, test, and frontend layer
 
 ## How to read commands
 
@@ -39,4 +40,4 @@ Commands that run inside a container are labelled explicitly. A host command cha
 
 ## Current status
 
-All nine chapters are complete. The guide now covers the implementation, actual verification commands, bugs and fixes, security boundaries, and honest limitations of the local POC.
+All ten chapters are complete. The guide covers the implementation, actual verification commands, bugs and fixes, security boundaries, honest limitations, and a source-level file/function walkthrough.

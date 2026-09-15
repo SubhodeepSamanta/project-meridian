@@ -72,6 +72,10 @@ The first live compromise run passed issuance flags to `step ca revoke`; the CLI
 
 The PKCS#11 object listing contained both expected key labels, but PowerShell applied `-notmatch` element-by-element and returned nonmatching lines as a truthy array. Joining output into one string fixed the assertion. The full suite then passed.
 
+### HSM recovery health probe watched the wrong container state
+
+The token-loss test intentionally stops the CA. On a repeat run, Compose can recreate or leave the service stopped, and `docker compose ps -q` only reports running containers. The final probe could therefore inspect a blank or stale ID even when the restored CA was starting correctly. The script now resolves the current service with `docker compose ps -a -q` both before the initial health loop and after token restoration, then checks the actual container state and health.
+
 ### Frontend type and network namespace defects
 
 The first TypeScript build lacked `@types/react`, `@types/react-dom`, and `@types/node`. Explicit declarations fixed the build. The first Compose browser proxy used `localhost:8000` from inside the web container and returned `ECONNREFUSED`; Compose now sets `VITE_API_TARGET=http://meridian-api:8000` while host development keeps the localhost default.
@@ -79,6 +83,10 @@ The first TypeScript build lacked `@types/react`, `@types/react-dom`, and `@type
 ### Browser visual helper unavailable
 
 The required CUA browser helper reported a missing kernel-assets path twice, so no screenshot was claimed as inspected. Build, HTTP, proxy, and service checks still passed. A human visual/accessibility review remains appropriate before treating the design as production UI.
+
+### A source package was hidden by an over-broad ignore rule
+
+The initial `.gitignore` used `**/db/` to keep generated database directories out of Git. That pattern also matched the real Python source package `apps/api/app/db/`, so local tests passed while the first staged commit omitted `database.py` and `models.py`. The final audit caught the ignored source directory, the rule was removed, the database files were added, and the corrected delivery was pushed. The safer lesson is to ignore the specific generated state path (`.local/`) rather than a generic directory name that can collide with source code.
 
 ## Troubleshooting order
 
