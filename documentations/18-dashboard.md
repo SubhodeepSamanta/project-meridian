@@ -24,6 +24,7 @@ The interface is a dark, instrument-like control room rather than a generic CRUD
 - the final contrast pass gives both themes stronger secondary text, heavier operational labels, clearer audit/graph copy, and visible keyboard focus without changing the meaning of any status color.
 - the selected-identity panel presents an X.509 dossier with issuer, algorithm, serial, expiry, and a SHA-256 fingerprint; it never displays private key material.
 - incident cards make `presented -> unknown -> quarantined -> revoked` and `detected -> quarantined -> revoked -> recovered` visible as state tracks.
+- the red `OPEN ↗` control is now an actual incident-details button: it expands the response explanation in place, while `Begin verified recovery ↗` remains the state-changing API action.
 
 The graph is an observable topology view and does not alter security decisions. The browser never receives a CA private key or a private-key path.
 
@@ -36,6 +37,7 @@ The graph is an observable topology view and does not alter security decisions. 
 - Identity detail actions issue a certificate, quarantine an identity, or open the compromise flow.
 - Pending high-risk actions can be approved from the policy gate.
 - Open incidents can be recovered from the incident theatre.
+- Recovery now exposes `Recovering incident…` during the request and then visibly changes the card to `RESOLVED`, increments the certificate/audit counts, and shows the success notice.
 - The protected-boundary panel reports live `hsm-ca` reachability, the `meridian-hsm` token identity, PKCS#11 objects, and the fact that CA private-key files are not mounted into the API.
 - The page polls the API every five seconds and exposes failures instead of replacing them with fake green state.
 - Polls are serialized so a slow request cannot be overtaken by a newer request and overwrite the screen with stale data. Selection is also repaired if the selected identity disappears.
