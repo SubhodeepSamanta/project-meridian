@@ -29,6 +29,7 @@ The graph is an observable topology view and does not alter security decisions. 
 
 - `Run the trust sequence` creates synthetic Agent Alpha and Agent Beta, issues both certificates, records Alpha's allowed action, records Beta's denied `delete_data` request, and opens Alpha's high-risk approval request.
 - During that sequence the button changes to `Registering Alpha + Beta`, `Issuing X.509 credentials`, `Evaluating policy`, and `Opening approval gate`, so the operator can see which real request is in progress.
+- The sequence deliberately pauses between registration, issuance, the allowed/denied policy checks, and the approval gate. Each checkpoint refreshes the API snapshot, so counters, graph health, and audit evidence visibly catch up while the operator is watching.
 - Identity detail actions issue a certificate, quarantine an identity, or open the compromise flow.
 - Pending high-risk actions can be approved from the policy gate.
 - Open incidents can be recovered from the incident theatre.
@@ -66,3 +67,4 @@ Or start the full local console from the project root with `docker compose up -d
 3. One earlier browser tab held a stale Vite module graph after a source edit. Restarting only `meridian-web` refreshed the module graph; the browser then showed the new live panel and the real in-progress sequence. The current visual review used the local in-app browser. The responsive CSS is covered by explicit 720px and 460px breakpoints; an automated pixel-diff across multiple device widths is still future work.
 4. The first audit layout was technically responsive but still too small to scan. A final CSS readability layer increased the type scale across the console and replaces the phone audit grid with stacked cards under 520px. This keeps the evidence hierarchy intact while preventing actors, results, and timestamps from collapsing into microscopic cells.
 5. The first topology was visually evocative but not a graph: it used orbit decoration and loose connector lines. The graph was replaced with an SVG edge layer plus live, selectable node buttons. This makes relationships inspectable while preserving the editorial visual language.
+6. On a narrow viewport, identity grid children retained their intrinsic desktop widths, which pushed status pills into the chevron and clipped labels such as `QUARANTINED`. `min-width: 0`, responsive grid columns, and a dedicated chevron column now keep identity names, state pills, and row links separated and readable.

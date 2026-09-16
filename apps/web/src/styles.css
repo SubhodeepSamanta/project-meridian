@@ -582,3 +582,50 @@ body { font-size: 15px; }
   .graph-readout p { font-size: 12px; }
   .constellation-card .constellation-legend { font-size: 12px; }
 }
+
+/* keep rail copy and identity state controls readable and separated. */
+.rail-caption, .rail-version { font-size: 12px; }
+.rail-system { font-size: 13px; }
+.rail-caption, .rail-version, .rail-system { line-height: 1.6; }
+.identity-row {
+  grid-template-columns: 38px minmax(140px, 1fr) minmax(120px, .9fr) minmax(125px, .8fr) minmax(110px, auto) 24px;
+  gap: 12px;
+}
+.identity-main { min-width: 0; }
+.identity-row .status-pill {
+  justify-self: start;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.row-chevron {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  min-height: 40px;
+  margin-left: 2px;
+  border-left: 1px solid rgba(191,210,211,.16);
+  font-size: 18px;
+}
+.workspace-grid, .lower-grid, .workspace-grid > *, .lower-grid > *, .identity-list, .identity-detail-panel, .detail-meta > div, .certificate-dossier, .dossier-grid > div { min-width: 0; }
+[id] { scroll-margin-top: 90px; }
+
+@media (max-width: 720px) {
+  .identity-row {
+    grid-template-columns: 34px minmax(0, 1fr) minmax(108px, auto) 24px;
+    gap: 10px;
+  }
+  .identity-row .status-pill { justify-self: start; }
+  .row-chevron { width: 24px; min-height: 42px; }
+}
+
+@media (max-width: 520px) {
+  .identity-row {
+    grid-template-columns: 34px minmax(0, 1fr) minmax(108px, auto) 24px;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+  .identity-row .status-pill { font-size: 11px; }
+}

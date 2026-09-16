@@ -75,6 +75,10 @@ function splitFingerprint(value: string): string {
   return value.match(/.{1,8}/g)?.join(" · ") ?? value;
 }
 
+function demoPause(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
 type GraphNodeId = "hsm" | "ca" | "hub" | "api" | "agents" | "services";
 
 type GraphNode = {
@@ -306,6 +310,7 @@ function App() {
     setNotice(null);
     const run = crypto.randomUUID().slice(0, 8);
     try {
+      await demoPause(900);
       const alpha = await createIdentity({
         name: `agent-alpha-${run}`,
         kind: "agent",
@@ -313,6 +318,7 @@ function App() {
         purpose: "primary actor in the trust-under-pressure story",
         allowed_actions: ["read_status", "rotate_certificate"],
       });
+      await demoPause(700);
       const beta = await createIdentity({
         name: `agent-beta-${run}`,
         kind: "agent",
@@ -320,26 +326,37 @@ function App() {
         purpose: "least-privilege counterexample",
         allowed_actions: ["read_status"],
       });
+      await refresh();
+      await demoPause(1100);
       setDemoPhase("issuing");
       const alphaCertificate = await issueCertificate(alpha.id, alpha.name);
+      await demoPause(700);
       const betaCertificate = await issueCertificate(beta.id, beta.name);
+      await refresh();
+      await demoPause(1200);
       setDemoPhase("evaluating");
       await requestAction(alpha.id, {
         action: "read_status",
         target: "service-a",
         certificate_fingerprint: alphaCertificate.fingerprint,
       });
+      await refresh();
+      await demoPause(900);
       await requestAction(beta.id, {
         action: "delete_data",
         target: "service-a",
         certificate_fingerprint: betaCertificate.fingerprint,
       });
+      await refresh();
+      await demoPause(1100);
       setDemoPhase("approval");
       await requestAction(alpha.id, {
         action: "rotate_certificate",
         target: alpha.name,
         certificate_fingerprint: alphaCertificate.fingerprint,
       });
+      await refresh();
+      await demoPause(1300);
       setSelectedId(alpha.id);
       await refresh();
       setNotice({ kind: "good", text: "Story launched: Alpha is awaiting approval; Beta was denied." });

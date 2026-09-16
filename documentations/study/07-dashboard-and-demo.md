@@ -28,6 +28,8 @@ API snapshot (8 resources) -> React state -> derived metrics/story stage -> visu
 
 The browser has no policy engine of its own. It requests an operation, renders the server's decision, and shows errors. The showcase button is a sequence of real API calls: register Alpha/Beta, issue their certificates, submit an allowed request, submit a denied request, and leave a high-risk request pending for an operator. During those calls the interface moves through `registering`, `issuing`, `evaluating`, and `approval` phases. This prevents a user from bypassing a deny decision by editing JavaScript in the browser and gives the operator evidence that the button is doing work.
 
+There is intentional breathing room between those calls. `demoPause()` gives the operator time to see each phase, while `refresh()` reloads the same API snapshot after each checkpoint. The delay is presentation pacing only; it does not replace, weaken, or simulate the server-side security decision.
+
 ## Commands used
 
 Build locally from the web folder with `npm run build`.
@@ -52,9 +54,12 @@ Run `pwsh -File .\scripts\run_policy.ps1`, `pwsh -File .\scripts\run_hsm.ps1`, o
 - The responsive layout changes the rail into top navigation below 720px, stacks the content grids, enlarges small labels, and turns the three identity actions into full-width touch controls below 460px.
 - The readability layer applies a deliberate minimum scale to operational text instead of relying on browser zoom. On narrow phones, audit evidence changes from a six-column table to a two-line card: sequence on the left, event and result on the first line, actor and time on the second line. This preserves the same data while making the story scannable by eye.
 - The graph keeps its edge layer in SVG but keeps node copy in normal responsive HTML buttons. That separation matters: the lines can scale with the topology while labels stay at readable CSS pixel sizes. At phone widths, node titles wrap instead of becoming ellipses, and edge labels move between nodes rather than underneath them.
+- Identity rows also use a responsive grid with `min-width: 0` on nested panels. Without that constraint, long certificate or identity content can force a grid wider than the phone and make `ACTIVE`/`QUARANTINED` pills overlap the row chevron. The final column is reserved for the link affordance, so state and navigation remain visually distinct.
 
 ## Problems and limits
 
 The first Compose proxy was aimed at the wrong network namespace; this was found by calling `/api/health` through the browser server, not by looking at source alone. A stale Vite module graph also made the first post-edit browser screenshot look unchanged; restarting only `meridian-web` made the new source visible. The live browser check then observed the button in its `ISSUING X.509 CREDENTIALS…` state and the completed Alpha/Beta result. The current CSS has explicit mobile breakpoints, but a future improvement would add automated screenshot regression at named device sizes.
+
+The first paced-demo attempt still left the UI looking static because all mutations completed inside one refresh window. The fix was to await a small pause and refresh after each meaningful checkpoint. A separate mobile review found that the identity status control and arrow shared an over-constrained row; reserving a chevron column and removing intrinsic minimum widths fixed the overlap without hiding the state.
 
 The current dashboard has no login, role-based UI, websocket stream, pagination, export report, or direct target-service response panel. Token removal is intentionally not a browser button: it is a destructive infrastructure mutation and remains in `run_hsm.ps1`. Those omissions are visible POC limits. The security decisions remain in the API and are audited there. A remaining quality-investment would be automated screenshot regression at named device sizes; the present pass was checked visually at the live narrow browser viewport and through the production build.
