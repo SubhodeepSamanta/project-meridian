@@ -67,6 +67,21 @@ function SectionEyebrow({ number, label }: { number: string; label: string }) {
 type DemoPhase = "idle" | "registering" | "issuing" | "evaluating" | "approval";
 type Theme = "dark" | "light";
 type TraceStatus = "queued" | "checking" | "verified";
+type NavSection = "overview" | "identities" | "boundary" | "incidents" | "evidence";
+
+const navSections: Array<{ id: NavSection; icon: string; label: string; index: string }> = [
+  { id: "overview", icon: "◈", label: "Overview", index: "01" },
+  { id: "identities", icon: "◎", label: "Identities", index: "02" },
+  { id: "boundary", icon: "⌘", label: "Boundary", index: "03" },
+  { id: "incidents", icon: "△", label: "Incidents", index: "04" },
+  { id: "evidence", icon: "≋", label: "Evidence", index: "05" },
+];
+
+function getInitialNavSection(): NavSection {
+  if (typeof window === "undefined") return "overview";
+  const hash = window.location.hash.slice(1);
+  return navSections.some((section) => section.id === hash) ? hash as NavSection : "overview";
+}
 
 function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "dark";
@@ -220,6 +235,8 @@ function TrustGraph({ snapshot }: { snapshot: Snapshot }) {
 function App() {
   const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const [activeSection, setActiveSection] = useState<NavSection>(getInitialNavSection);
+  const navRef = useRef<HTMLElement | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "good" | "bad"; text: string } | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -272,6 +289,44 @@ function App() {
       // Theme still works for this session when storage is unavailable.
     }
   }, [theme]);
+
+  useEffect(() => {
+    const updateActiveSection = () => {
+      const marker = window.scrollY + 150;
+      const current = [...navSections].reverse().find((section) => {
+        const element = document.getElementById(section.id);
+        return element ? element.getBoundingClientRect().top + window.scrollY <= marker : false;
+      });
+      if (current) setActiveSection(current.id);
+    };
+    const updateFromHash = () => {
+      const hash = window.location.hash.slice(1);
+      const section = navSections.find((candidate) => candidate.id === hash);
+      if (section) setActiveSection(section.id);
+      // Let the browser finish its native anchor scroll before the position
+      // check can refine the active state. This avoids a click briefly being
+      // overwritten by the section that was visible before the jump.
+      window.requestAnimationFrame(() => window.requestAnimationFrame(updateActiveSection));
+    };
+    updateActiveSection();
+    window.addEventListener("scroll", updateActiveSection, { passive: true });
+    window.addEventListener("hashchange", updateFromHash);
+    return () => {
+      window.removeEventListener("scroll", updateActiveSection);
+      window.removeEventListener("hashchange", updateFromHash);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (window.innerWidth <= 720) {
+      const nav = navRef.current;
+      const link = nav?.querySelector<HTMLAnchorElement>(`[data-nav-section="${activeSection}"]`);
+      if (nav && link) {
+        const targetLeft = link.offsetLeft - (nav.clientWidth - link.offsetWidth) / 2;
+        nav.scrollTo({ left: Math.max(0, targetLeft), behavior: "smooth" });
+      }
+    }
+  }, [activeSection]);
 
   const selectedIdentity = snapshot.identities.find((identity) => identity.id === selectedId) ?? null;
   const selectedCertificates = useMemo(
@@ -451,16 +506,12 @@ function App() {
   }
 
   return (
-    <main className="app-shell min-h-screen overflow-x-hidden bg-slate-950/0 text-slate-100">
+    <main className="app-shell min-h-screen bg-slate-950/0 text-slate-100">
       <aside className="side-rail shadow-panel">
         <div className="brand-mark"><span className="brand-orbit" /><span className="brand-word">MERIDIAN</span><span className="brand-sub">TRUST OPERATIONS</span></div>
         <div className="rail-rule" />
-        <nav aria-label="Primary navigation">
-          <a className="nav-link active" href="#overview"><span className="nav-icon">◈</span>Overview<span className="nav-index">01</span></a>
-          <a className="nav-link" href="#identities"><span className="nav-icon">◎</span>Identities<span className="nav-index">02</span></a>
-          <a className="nav-link" href="#boundary"><span className="nav-icon">⌘</span>Boundary<span className="nav-index">03</span></a>
-          <a className="nav-link" href="#incidents"><span className="nav-icon">△</span>Incidents<span className="nav-index">04</span></a>
-          <a className="nav-link" href="#evidence"><span className="nav-icon">≋</span>Evidence<span className="nav-index">05</span></a>
+        <nav ref={navRef} aria-label="Primary navigation">
+          {navSections.map((section) => <a className={`nav-link ${activeSection === section.id ? "active" : ""}`} data-nav-section={section.id} aria-current={activeSection === section.id ? "page" : undefined} key={section.id} href={`#${section.id}`} onClick={() => setActiveSection(section.id)}><span className="nav-icon">{section.icon}</span>{section.label}<span className="nav-index">{section.index}</span></a>)}
         </nav>
         <div className="rail-bottom">
           <div className="rail-caption">LOCAL LAB / SYNTHETIC DATA</div>
@@ -481,8 +532,8 @@ function App() {
           </div>
         </header>
 
-        <div className="page-content" id="overview">
-          <section className="hero-grid">
+        <div className="page-content">
+          <section className="hero-grid" id="overview">
             <div className="hero-copy">
               <SectionEyebrow number="00" label="THE TRUST SURFACE" />
               <h1>Make trust legible.<br /><em>Keep it in motion.</em></h1>

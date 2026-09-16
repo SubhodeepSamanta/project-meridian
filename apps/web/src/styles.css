@@ -31,7 +31,7 @@
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--bg); }
+body { margin: 0; min-width: 320px; min-height: 100vh; overflow-x: hidden; background: var(--bg); }
 button, a { font: inherit; }
 button { color: inherit; }
 button:disabled { cursor: not-allowed; opacity: .46; }
@@ -801,3 +801,24 @@ html[data-theme="light"] .tag-cloud span { color: #41477f; border-color: rgba(95
 html[data-theme="light"] .incident-details { background: rgba(180,65,72,.08); }
 html[data-theme="light"] .inline-action { color: var(--cyan-deep); border-color: rgba(8,125,118,.42); background: rgba(8,125,118,.08); }
 html[data-theme="light"] .inline-action:hover { background: rgba(8,125,118,.14); }
+
+/* a deliberate Meridian mark: readable wordmark plus a layered trust-orbit glyph. */
+.side-rail, .brand-mark { color: var(--ink); }
+.brand-mark { grid-template-columns: 35px minmax(0, 1fr); column-gap: 11px; }
+.brand-orbit { position: relative; display: block; width: 34px; height: 34px; border-color: var(--cyan); background: radial-gradient(circle at 50% 50%, rgba(199,232,108,.14), transparent 63%); box-shadow: 0 0 22px rgba(199,232,108,.18); }
+.brand-orbit::before { content: ""; position: absolute; inset: 6px 9px; border: 1px solid var(--line-bright); border-radius: 50%; transform: rotate(-35deg); }
+.brand-orbit::after { position: absolute; top: 4px; right: 4px; display: block; width: 6px; height: 6px; margin: 0; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+.brand-word { color: var(--ink); font-size: 15px; letter-spacing: .18em; line-height: 1; }
+.brand-sub { align-self: start; margin-top: 5px; color: var(--cyan); font-size: 9px; line-height: 1.2; }
+.nav-link { color: var(--muted); }
+.nav-link.active { box-shadow: inset 2px 0 var(--cyan); }
+.nav-link[aria-current="page"] { font-weight: 700; }
+.hero-grid, .boundary-section, .workspace-grid, .lower-grid, .evidence-section { scroll-margin-top: 22px; }
+
+@media (max-width: 720px) {
+  .brand-mark { display: flex; align-items: center; gap: 10px; }
+  .brand-orbit { flex: 0 0 auto; width: 28px; height: 28px; }
+  .brand-word { font-size: 14px; }
+  .brand-sub { margin-top: 0; font-size: 9px; }
+  .nav-link.active { box-shadow: inset 0 -2px var(--cyan); }
+}
