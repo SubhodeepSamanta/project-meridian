@@ -732,3 +732,46 @@ html[data-theme="light"] .theme-toggle { background: rgba(255,255,255,.78); }
   .trace-list { grid-template-columns: 1fr; }
   .trace-check p { min-height: 0; }
 }
+
+/* final contrast pass: operational copy must survive both themes and a small screen. */
+:root {
+  --ink: #f2faf5;
+  --paper: #edf8f1;
+  --muted: #b2c6bf;
+  --faint: #7d9690;
+  --line: rgba(203,231,220,.22);
+  --line-bright: rgba(203,231,220,.4);
+}
+html[data-theme="light"] {
+  --ink: #162b2c;
+  --paper: #10383a;
+  --muted: #4d6563;
+  --faint: #607875;
+  --line: rgba(18,57,57,.22);
+  --line-bright: rgba(18,57,57,.38);
+}
+body { color: var(--ink); font-weight: 500; }
+.hero-copy h1, .story-header h2, .panel-heading h2 { color: var(--ink); font-weight: 600; }
+.hero-lede, .live-protocol-main p, .graph-readout p, .boundary-copy p, .incident-content p, .decision-content p, .decision-content small, .metric-foot, .story-beat small, .trace-check p { color: var(--muted); font-weight: 500; }
+.section-eyebrow, .card-topline, .nav-link, .breadcrumb, .top-actions, .health-indicator, .theme-toggle, .status-pill, .text-link, .text-button { font-weight: 600; }
+.nav-link:not(.active), .last-refresh, .muted { color: var(--muted); }
+.identity-main strong, .incident-top strong, .decision-top strong, .audit-event strong { color: var(--ink); font-weight: 700; }
+.identity-main small, .identity-purpose, .identity-certificate small, .detail-meta span, .authority-title, .cert-detail-top, .dossier-top span, .dossier-fingerprint > span, .boundary-callout span, .resolved-copy, .risk-label { color: var(--muted); font-weight: 600; }
+.identity-certificate b, .detail-meta strong, .dossier-top strong, .dossier-grid strong, .boundary-facts strong, .boundary-callout strong { font-weight: 600; }
+.trace-heading, .trace-check-top strong, .trace-last span, .trace-last small, .trace-check small { font-weight: 600; }
+.trace-check-top strong { color: var(--ink); }
+.trace-check p { font-size: 12px; }
+.trace-check small, .trace-last span, .trace-last small { color: var(--muted); }
+.trace-last strong, .graph-readout strong, .graph-node-copy strong { color: var(--ink); font-weight: 700; }
+.graph-node-copy small, .graph-node-copy em { color: var(--muted); font-weight: 600; }
+.audit-row { color: var(--muted); font-weight: 500; }
+.audit-event strong { font-size: 14px; }
+.audit-actor { color: var(--ink); font-weight: 600; }
+.audit-actor small { color: var(--muted); font-weight: 600; }
+.audit-seq, .audit-time, .chain-link { font-weight: 600; }
+.footer, .footer-note { color: var(--muted); font-weight: 600; }
+.primary-button, .secondary-button, .ghost-button, .approve-button { font-weight: 600; }
+html[data-theme="light"] .audit-actor small, html[data-theme="light"] .trace-check small, html[data-theme="light"] .trace-last span, html[data-theme="light"] .trace-last small { color: var(--muted); }
+html[data-theme="light"] .graph-edge-label { font-weight: 600; }
+html[data-theme="light"] .boundary-facts strong, html[data-theme="light"] .dossier-grid strong { color: var(--paper); }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }

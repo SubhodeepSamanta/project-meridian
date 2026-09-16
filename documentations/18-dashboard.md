@@ -21,6 +21,7 @@ The interface is a dark, instrument-like control room rather than a generic CRUD
 - graph labels and health values come from the live snapshot; the graph is a topology view, not a substitute cryptographic proof graph.
 - the live execution panel narrates the API snapshot with four evidence checkpoints: identities, X.509/PKI, policy, and containment.
 - the operator trace turns those checkpoints into four server-facing checks with `queued`, `checking`, and `verified` states, endpoint labels, and the latest audit event; the running state adds a small scan cue so activity is visible without pretending to be a network animation.
+- the final contrast pass gives both themes stronger secondary text, heavier operational labels, clearer audit/graph copy, and visible keyboard focus without changing the meaning of any status color.
 - the selected-identity panel presents an X.509 dossier with issuer, algorithm, serial, expiry, and a SHA-256 fingerprint; it never displays private key material.
 - incident cards make `presented -> unknown -> quarantined -> revoked` and `detected -> quarantined -> revoked -> recovered` visible as state tracks.
 
@@ -62,6 +63,7 @@ Or start the full local console from the project root with `docker compose up -d
 - Visual inspection at the narrow in-app-browser viewport showed the enlarged audit entries as readable cards, including event names such as `Certificate Revoked`, actor/fingerprint context, `SUCCESS`, sequence numbers, and relative times.
 - Visual inspection at the narrow in-app-browser viewport showed the connected graph with readable `PROTECTED HSM`, `ISSUING CA`, `MERIDIAN`, `CONTROL API`, `AGENTS`, and `SERVICES` nodes plus directed `PKCS#11`, `X.509`, `mTLS`, `policy`, and `evidence` edges. Clicking `AGENTS` changed the selected-node readout and reduced the graph to its two related edges.
 - Visual inspection showed the live operator trace moving through `CHECKING` during the showcase and `VERIFIED` after the final refresh, with real API endpoint labels and the latest audit event. The light-mode toggle remained active after a reload and the live data rehydrated without changing the theme.
+- Visual inspection after the contrast pass showed the larger, heavier headings, metadata, status labels, graph copy, audit actors, and trace details in both the light and dark themes at the narrow browser viewport.
 
 ## Problems found and fixed
 
@@ -72,3 +74,4 @@ Or start the full local console from the project root with `docker compose up -d
 5. The first topology was visually evocative but not a graph: it used orbit decoration and loose connector lines. The graph was replaced with an SVG edge layer plus live, selectable node buttons. This makes relationships inspectable while preserving the editorial visual language.
 6. On a narrow viewport, identity grid children retained their intrinsic desktop widths, which pushed status pills into the chevron and clipped labels such as `QUARANTINED`. `min-width: 0`, responsive grid columns, and a dedicated chevron column now keep identity names, state pills, and row links separated and readable.
 7. A single “running” label did not make the showcase feel observable enough. The operator trace now pairs each phase with the real API checkpoint it represents, shows what is queued or being checked, and surfaces the last event the server wrote to the hash chain. The theme control uses the same tokenized status system in both light and dark modes.
+8. The earlier readability pass increased size but left some secondary text too pale and too light in weight. The final contrast layer raises the muted/faint token contrast, gives operational text a 500–700 weight range, and uses explicit light/dark overrides for audit, graph, dossier, protocol, and status copy.
