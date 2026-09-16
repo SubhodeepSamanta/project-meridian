@@ -14,7 +14,7 @@ The goal is not decoration. A good visual surface answers quickly:
 
 ## Visual intuition
 
-The topology is an orientation map, not a cryptographic graph. The center says “trust graph”; surrounding nodes represent the issuing CA, control API, agents, and mTLS services. Orbit rings suggest boundaries and relationships. The protected-key panel then names the real SoftHSM/PKCS#11 boundary and its live CA link. The identity registry and audit table carry the actual details. The live execution panel is the bridge between the map and the evidence: its counts and checkpoint states come from the same API snapshot, while the button briefly exposes the exact request phase during a run.
+The topology is now a real directed graph, but it is still not a cryptographic proof graph. SVG paths encode the live relationships between the protected HSM, issuing CA, Meridian control plane, API, agents, and services. Each node is a selectable button; selecting `AGENTS`, for example, highlights the two connected edges and changes the readout below the graph. The protected-key panel names the real SoftHSM/PKCS#11 boundary and its live CA link. The identity registry and audit table carry the actual details. The live execution panel is the bridge between the graph and the evidence: its counts and checkpoint states come from the same API snapshot, while the button briefly exposes the exact request phase during a run.
 
 The lifecycle track turns the platform into a story: observe the system, decide an action, contain compromise, and recover with a new credential. Its active state is derived from API evidence, so a running incident changes the story rather than triggering a fake animation.
 
@@ -48,8 +48,10 @@ Run `pwsh -File .\scripts\run_policy.ps1`, `pwsh -File .\scripts\run_hsm.ps1`, o
 - The selected identity is rendered as a certificate dossier instead of a single tiny fingerprint line. The dossier teaches the safe certificate fields—issuer, algorithm, serial, expiry, and public fingerprint—without exposing a private key.
 - Incident theatre names the containment goal directly as “isolate the unknown” and visualizes the lifecycle state transition before offering recovery.
 - The `Run the trust sequence` control creates unique Alpha/Beta names so demonstrations are repeatable without overwriting prior evidence.
+- The graph buttons are presentation controls only: they select and explain a node, but they do not change security state. The actual state changes still go through the API controls and are hash-linked in the audit evidence.
 - The responsive layout changes the rail into top navigation below 720px, stacks the content grids, enlarges small labels, and turns the three identity actions into full-width touch controls below 460px.
 - The readability layer applies a deliberate minimum scale to operational text instead of relying on browser zoom. On narrow phones, audit evidence changes from a six-column table to a two-line card: sequence on the left, event and result on the first line, actor and time on the second line. This preserves the same data while making the story scannable by eye.
+- The graph keeps its edge layer in SVG but keeps node copy in normal responsive HTML buttons. That separation matters: the lines can scale with the topology while labels stay at readable CSS pixel sizes. At phone widths, node titles wrap instead of becoming ellipses, and edge labels move between nodes rather than underneath them.
 
 ## Problems and limits
 

@@ -402,3 +402,183 @@ body { font-size: 15px; }
   .audit-actor small { display: inline; margin-left: 7px; }
   .audit-row > span:nth-child(3), .audit-row > span:nth-child(5) { display: block; }
 }
+
+/* final readability pass: essential operational text should not look like metadata. */
+.brand-word { font-size: 16px; }
+.brand-sub, .rail-caption, .rail-version { font-size: 10px; }
+.rail-system { font-size: 12px; }
+.nav-link { font-size: 13px; }
+.nav-index { font-size: 11px; }
+.breadcrumb, .top-actions, .health-indicator { font-size: 12px; }
+.health-indicator { padding: 9px 12px; }
+.section-eyebrow, .card-topline { font-size: 12px; }
+.hero-lede { font-size: 15px; }
+.text-link, .text-button, .notice { font-size: 12px; }
+.metric-label { font-size: 11px; }
+.metric-foot { font-size: 13px; }
+.story-context, .panel-count, .integrity-meta { font-size: 12px; }
+.story-beat small { font-size: 11px; }
+.identity-main strong { font-size: 14px; }
+.identity-main small, .identity-purpose { font-size: 12px; }
+.identity-certificate b, .identity-certificate small, .no-cert { font-size: 11px; }
+.status-pill { font-size: 11px; padding: 7px 10px; }
+.detail-meta span, .authority-title, .cert-detail-top, .dossier-top span, .dossier-fingerprint > span, .boundary-callout span { font-size: 11px; }
+.detail-meta strong, .dossier-top strong { font-size: 13px; }
+.tag-cloud span { font-size: 11px; }
+.fingerprint, .dossier-fingerprint code { font-size: 13px; }
+.cert-detail-foot, .boundary-visual-status, .resolved-copy, .risk-label { font-size: 11px; }
+.secondary-button, .ghost-button, .inline-action, .approve-button { font-size: 12px; }
+.incident-top strong, .decision-top strong { font-size: 14px; }
+.incident-content p, .decision-content p, .decision-content small { font-size: 12px; }
+.live-protocol-top, .live-event-count, .protocol-step strong { font-size: 11px; }
+.live-protocol-main p, .boundary-callout { font-size: 13px; }
+.boundary-objects code, .dossier-grid span { font-size: 12px; }
+.dossier-grid strong { font-size: 13px; }
+.audit-table-head { font-size: 11px; }
+.audit-row { font-size: 13px; }
+.audit-seq, .audit-time, .chain-link { font-size: 12px; }
+.audit-actor { color: var(--ink); }
+.audit-event strong { font-size: 14px; }
+.audit-actor small { color: #c5d2cc; font-size: 12px; }
+.audit-row .status-pill { font-size: 11px; padding: 8px 10px; }
+.integrity-warning, .footer { font-size: 11px; }
+
+/* the topology is a real directed graph: edges are SVG, labels are live buttons. */
+.constellation-card { min-height: 0; }
+.trust-graph-stage {
+  position: relative;
+  height: 370px;
+  margin: 5px 10px 0;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 50%, rgba(199,232,108,.06), transparent 34%), linear-gradient(rgba(199,232,108,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(199,232,108,.045) 1px, transparent 1px);
+  background-size: auto, 38px 38px, 38px 38px;
+  border: 1px solid rgba(199,232,108,.12);
+}
+.trust-graph-stage::after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border: 1px solid rgba(191,210,211,.1);
+  pointer-events: none;
+}
+.trust-graph-edges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.graph-edge-path {
+  fill: none;
+  stroke: var(--cyan);
+  stroke-width: 2.5;
+  opacity: .72;
+  vector-effect: non-scaling-stroke;
+}
+.graph-edge-group.dim .graph-edge-path { opacity: .38; }
+.graph-edge-label {
+  fill: var(--ink);
+  font-family: var(--mono);
+  font-size: 18px;
+  letter-spacing: .08em;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: #10181b;
+  stroke-width: 8px;
+  stroke-linejoin: round;
+}
+.graph-edge-group.dim .graph-edge-label { opacity: .48; }
+.graph-node {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: clamp(160px, 22%, 215px);
+  min-height: 70px;
+  padding: 11px 13px;
+  overflow: hidden;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(191,210,211,.24);
+  border-radius: 4px;
+  background: rgba(15,24,27,.96);
+  color: var(--ink);
+  box-shadow: 0 10px 24px rgba(0,0,0,.24);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+.graph-node:hover, .graph-node.selected {
+  z-index: 4;
+  border-color: var(--cyan);
+  background: rgba(27,41,40,.98);
+  box-shadow: 0 0 0 1px rgba(199,232,108,.12), 0 12px 28px rgba(0,0,0,.3);
+  transform: translate(-50%, -50%) translateY(-2px);
+}
+.graph-node-glyph {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 18px;
+}
+.graph-node-glyph.good { color: var(--cyan); box-shadow: 0 0 14px rgba(199,232,108,.13); }
+.graph-node-glyph.warn { color: var(--amber); }
+.graph-node-glyph.bad { color: var(--red); }
+.graph-node-copy { display: grid; gap: 3px; min-width: 0; }
+.graph-node-copy strong { color: var(--ink); font-family: var(--mono); font-size: 13px; font-weight: 500; letter-spacing: .04em; line-height: 1.15; }
+.graph-node-copy small { color: var(--paper); font-size: 12px; line-height: 1.2; }
+.graph-node-copy em { color: var(--muted); font-family: var(--mono); font-size: 11px; font-style: normal; line-height: 1.2; }
+.graph-node-hub { width: 184px; min-height: 82px; border-color: rgba(199,232,108,.46); background: #142125; }
+.graph-node-hub .graph-node-glyph { width: 44px; height: 44px; color: var(--cyan); font-size: 22px; }
+.graph-node-hub .graph-node-copy strong { font-size: 15px; }
+.graph-node-hub .graph-node-copy small { font-size: 13px; }
+.graph-readout { display: grid; grid-template-columns: auto minmax(115px, .7fr) minmax(220px, 1.4fr); align-items: center; gap: 10px 14px; margin: 0 21px; padding: 13px 0 12px; border-bottom: 1px solid rgba(191,210,211,.12); }
+.graph-readout > span { color: var(--cyan); font-family: var(--mono); font-size: 11px; letter-spacing: .1em; }
+.graph-readout strong { color: var(--paper); font-family: var(--mono); font-size: 13px; font-weight: 500; }
+.graph-readout p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.constellation-card .constellation-legend { position: static; right: auto; bottom: auto; left: auto; gap: 22px; margin: 0 21px; padding: 12px 0 16px; color: var(--ink); font-size: 12px; }
+.constellation-card .constellation-legend i { width: 9px; height: 9px; }
+.constellation-card .constellation-legend .legend-line { width: 18px !important; height: 2px !important; }
+
+@media (max-width: 720px) {
+  .brand-word { font-size: 15px; }
+  .brand-sub { font-size: 10px; }
+  .nav-link, .nav-link:not(.active) { font-size: 12px; }
+  .hero-lede { font-size: 14px; }
+  .trust-graph-stage { height: 390px; margin-right: 5px; margin-left: 5px; }
+  .graph-node { width: 172px; min-height: 70px; padding: 10px 11px; gap: 10px; }
+  .graph-node-copy strong { font-size: 13px; }
+  .graph-node-copy small { font-size: 12px; }
+  .graph-node-copy em { font-size: 11px; }
+  .graph-node-hub { width: 180px; }
+  .graph-readout { grid-template-columns: auto 1fr; gap: 7px 10px; margin-right: 16px; margin-left: 16px; }
+  .graph-readout > span { grid-column: 1 / -1; font-size: 11px; }
+  .graph-readout p { grid-column: 1 / -1; font-size: 12px; }
+  .constellation-card .constellation-legend { flex-wrap: wrap; gap: 10px 18px; margin-right: 16px; margin-left: 16px; font-size: 12px; }
+}
+
+@media (max-width: 520px) {
+  .brand-word { font-size: 14px; }
+  .trust-graph-stage { height: 405px; }
+  .graph-node { width: 165px; min-height: 74px; padding: 9px 10px; gap: 8px; }
+  .graph-node-hsm, .graph-node-ca { left: 19% !important; }
+  .graph-node-glyph { width: 32px; height: 32px; font-size: 16px; }
+  .graph-node-copy strong { font-size: 12px; }
+  .graph-node-copy small { font-size: 11px; }
+  .graph-node-copy em { font-size: 10px; }
+  .graph-node-hub { width: 178px; }
+  .graph-node-hub .graph-node-glyph { width: 38px; height: 38px; }
+  .graph-node-hub .graph-node-copy strong { font-size: 13px; }
+  .graph-node-hub .graph-node-copy small { font-size: 11px; }
+  .graph-edge-label { font-size: 22px; }
+  .graph-readout > span { font-size: 10px; }
+  .graph-readout strong { font-size: 13px; }
+  .graph-readout p { font-size: 12px; }
+  .constellation-card .constellation-legend { font-size: 12px; }
+}

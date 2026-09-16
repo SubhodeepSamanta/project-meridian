@@ -75,6 +75,131 @@ function splitFingerprint(value: string): string {
   return value.match(/.{1,8}/g)?.join(" · ") ?? value;
 }
 
+type GraphNodeId = "hsm" | "ca" | "hub" | "api" | "agents" | "services";
+
+type GraphNode = {
+  id: GraphNodeId;
+  title: string;
+  detail: string;
+  meta: string;
+  description: string;
+  glyph: string;
+  status: string;
+  left: string;
+  top: string;
+};
+
+const graphEdges = [
+  { id: "hsm-ca", from: "hsm" as GraphNodeId, to: "ca" as GraphNodeId, label: "PKCS#11", x: 120, y: 240, d: "M 170 105 C 220 105 220 375 170 375" },
+  { id: "hsm-hub", from: "hsm" as GraphNodeId, to: "hub" as GraphNodeId, label: "sign", x: 310, y: 155, d: "M 190 105 C 280 105 300 205 418 240" },
+  { id: "ca-hub", from: "ca" as GraphNodeId, to: "hub" as GraphNodeId, label: "X.509", x: 305, y: 300, d: "M 190 375 C 280 375 300 285 418 260" },
+  { id: "hub-api", from: "hub" as GraphNodeId, to: "api" as GraphNodeId, label: "audit", x: 590, y: 135, d: "M 505 240 C 565 205 585 135 710 105" },
+  { id: "api-agents", from: "api" as GraphNodeId, to: "agents" as GraphNodeId, label: "mTLS", x: 755, y: 155, d: "M 710 105 C 780 105 780 205 820 245" },
+  { id: "agents-services", from: "agents" as GraphNodeId, to: "services" as GraphNodeId, label: "policy", x: 875, y: 315, d: "M 835 270 C 900 270 900 395 835 395" },
+  { id: "hub-services", from: "hub" as GraphNodeId, to: "services" as GraphNodeId, label: "evidence", x: 620, y: 310, d: "M 505 270 C 600 330 650 395 765 395" },
+];
+
+function TrustGraph({ snapshot }: { snapshot: Snapshot }) {
+  const [selectedNode, setSelectedNode] = useState<GraphNodeId>("hub");
+  const agentCount = snapshot.identities.filter((identity) => identity.kind === "agent").length;
+  const boundaryHealthy = snapshot.protectedBoundary?.status === "healthy";
+  const serviceHealthy = snapshot.health?.status === "healthy";
+  const graphNodes: GraphNode[] = [
+    {
+      id: "hsm",
+      title: "PROTECTED HSM",
+      detail: snapshot.protectedBoundary?.token_label ?? "meridian-hsm",
+      meta: "PKCS#11 boundary",
+      description: "The CA signing objects stay behind the protected PKCS#11 boundary.",
+      glyph: "▣",
+      status: boundaryHealthy ? "protected" : "checking",
+      left: "17%",
+      top: "20%",
+    },
+    {
+      id: "ca",
+      title: "ISSUING CA",
+      detail: snapshot.health?.certificate_authority ?? "checking",
+      meta: "X.509 issuer",
+      description: "The issuing CA returns short-lived certificates without exposing its private key.",
+      glyph: "✦",
+      status: snapshot.health?.certificate_authority ?? "checking",
+      left: "17%",
+      top: "75%",
+    },
+    {
+      id: "hub",
+      title: "MERIDIAN",
+      detail: "trust control plane",
+      meta: `${snapshot.events.length} linked events`,
+      description: "Meridian connects identity, policy, certificate, incident, and audit evidence.",
+      glyph: "◈",
+      status: snapshot.integrity?.valid ? "verified" : "audited",
+      left: "50%",
+      top: "49%",
+    },
+    {
+      id: "api",
+      title: "CONTROL API",
+      detail: snapshot.health?.database ?? "checking",
+      meta: "policy decisions",
+      description: "The API evaluates requests against the identity's authority and records the result.",
+      glyph: "⌁",
+      status: snapshot.health?.database ?? "checking",
+      left: "71%",
+      top: "20%",
+    },
+    {
+      id: "agents",
+      title: "AGENTS",
+      detail: `${agentCount} observed`,
+      meta: "certificate identities",
+      description: "Each agent presents an X.509 identity before it can ask for an action.",
+      glyph: "◌",
+      status: agentCount > 0 ? "active" : "standby",
+      left: "82%",
+      top: "49%",
+    },
+    {
+      id: "services",
+      title: "SERVICES",
+      detail: "mTLS mesh",
+      meta: serviceHealthy ? "connected" : "checking",
+      description: "Target services accept the request only after mutual TLS and policy checks succeed.",
+      glyph: "⊙",
+      status: serviceHealthy ? "healthy" : "checking",
+      left: "78%",
+      top: "79%",
+    },
+  ];
+  const selected = graphNodes.find((node) => node.id === selectedNode) ?? graphNodes[2];
+  const relatedEdges = graphEdges.filter((edge) => edge.from === selectedNode || edge.to === selectedNode).length;
+
+  return (
+    <div className="constellation-card rounded-xl shadow-panel" aria-label="Live trust graph">
+      <div className="card-topline"><span>LIVE TRUST GRAPH</span><span className="coordinates">MERIDIAN / 01</span></div>
+      <div className="trust-graph-stage">
+        <svg className="trust-graph-edges" viewBox="0 0 1000 500" preserveAspectRatio="none" role="img" aria-labelledby="trust-graph-title trust-graph-description">
+          <title id="trust-graph-title">Meridian trust topology</title>
+          <desc id="trust-graph-description">Directed connections from the protected signing boundary through the issuing CA and control API to agent identities and mTLS services.</desc>
+          <defs>
+            <marker id="trust-graph-arrow" markerWidth="8" markerHeight="8" refX="7" refY="0" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,-4 L8,0 L0,4 Z" fill="var(--cyan)" />
+            </marker>
+          </defs>
+          {graphEdges.map((edge) => <g className={`graph-edge-group ${selectedNode !== edge.from && selectedNode !== edge.to ? "dim" : ""}`} key={edge.id}><path className="graph-edge-path" d={edge.d} markerEnd="url(#trust-graph-arrow)" /><text className="graph-edge-label" x={edge.x} y={edge.y}>{edge.label}</text></g>)}
+        </svg>
+        {graphNodes.map((node) => <button className={`graph-node graph-node-${node.id} ${selectedNode === node.id ? "selected" : ""}`} type="button" key={node.id} style={{ left: node.left, top: node.top }} aria-pressed={selectedNode === node.id} onClick={() => setSelectedNode(node.id)}>
+          <span className={`graph-node-glyph ${tone(node.status)}`}>{node.glyph}</span>
+          <span className="graph-node-copy"><strong>{node.title}</strong><small>{node.detail}</small><em>{node.meta}</em></span>
+        </button>)}
+      </div>
+      <div className="graph-readout" aria-live="polite"><span>SELECTED NODE / {relatedEdges} LINKED EDGES</span><strong>{selected.title}</strong><p>{selected.description}</p></div>
+      <div className="constellation-legend"><span><i className="legend-good" />healthy node</span><span><i className="legend-line" />directed trust edge</span><span><i className="legend-orbit" />protected boundary</span></div>
+    </div>
+  );
+}
+
 function App() {
   const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -283,19 +408,7 @@ function App() {
                 </div>
               </div>
             </div>
-            <div className="constellation-card rounded-xl shadow-panel" aria-label="Live trust constellation">
-              <div className="card-topline"><span>OBSERVED TRUST TOPOLOGY</span><span className="coordinates">MERIDIAN / 01</span></div>
-              <div className="constellation-stage">
-                <div className="orbit orbit-a" /><div className="orbit orbit-b" /><div className="orbit orbit-c" />
-                <div className="constellation-line line-one" /><div className="constellation-line line-two" /><div className="constellation-line line-three" />
-                <div className="constellation-node ca-node"><span className="node-core">✦</span><strong>ISSUING CA</strong><small>{snapshot.health?.certificate_authority ?? "checking"}</small></div>
-                <div className="constellation-node api-node"><span className="node-core">⌁</span><strong>CONTROL API</strong><small>{snapshot.health?.database ?? "checking"}</small></div>
-                <div className="constellation-node agent-node"><span className="node-core">◌</span><strong>AGENTS</strong><small>{snapshot.identities.filter((item) => item.kind === "agent").length} observed</small></div>
-                <div className="constellation-node service-node"><span className="node-core">⊙</span><strong>SERVICES</strong><small>mTLS mesh</small></div>
-                <div className="constellation-center"><span>MERIDIAN</span><b>TRUST<br />GRAPH</b></div>
-              </div>
-              <div className="constellation-legend"><span><i className="legend-good" />healthy</span><span><i className="legend-line" />audited link</span><span><i className="legend-orbit" />protected boundary</span></div>
-            </div>
+            <TrustGraph snapshot={snapshot} />
           </section>
 
           <section className="metrics-grid" aria-label="Trust metrics">
