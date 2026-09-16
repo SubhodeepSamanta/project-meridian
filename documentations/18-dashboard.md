@@ -43,7 +43,7 @@ The graph is an observable topology view and does not alter security decisions. 
 - Polls are serialized so a slow request cannot be overtaken by a newer request and overwrite the screen with stale data. Selection is also repaired if the selected identity disappears.
 - The registry opens on the newest twelve identities while preserving the full total in the API and audit history. When a demo Alpha exists, the latest Alpha is selected so the approval story is the first credential dossier shown. This keeps repeated synthetic runs from pushing the incident and evidence panels out of reach.
 - At widths below 720px the fixed rail becomes a horizontally scrollable top navigation, grids stack, buttons become comfortable touch targets, metadata grows, and low-priority columns collapse. Below 460px the detail actions stack and the HSM facts become one column. The final readability pass raises operational labels, metadata, status pills, graph labels, and evidence text; on phone widths the audit table becomes two-line evidence cards so event, actor, result, and time remain readable without desktop-sized columns.
-- Navigation is scroll-aware: the active tab is initialized from the URL hash, changes immediately on click, follows the section crossing the scroll marker, exposes `aria-current`, and keeps the selected tab in view when the compact mobile nav overflows horizontally.
+- Navigation is scroll-aware: the active tab is initialized from the URL hash, changes immediately on click, follows the section crossing a viewport-aware reading marker, exposes `aria-current`, and keeps the selected tab in view when the compact mobile nav overflows horizontally. The desktop rail also explains the active step as `see the trust graph`, `name who is trusted`, `prove keys stay protected`, `contain the unknown`, or `verify what happened`.
 - The page keeps vertical scrolling on the document. Horizontal clipping belongs to `body`, not the React `<main>`, because an `overflow-x-hidden` shell can become a competing scroll container and make hash links, `window.scrollY`, and the visible section disagree.
 
 ## Local run
@@ -70,6 +70,7 @@ Or start the full local console from the project root with `docker compose up -d
 - Visual inspection after the contrast pass showed the larger, heavier headings, metadata, status labels, graph copy, audit actors, and trace details in both the light and dark themes at the narrow browser viewport.
 - The navigation/brand pass showed the light-mode wordmark inheriting the shell's pale Tailwind text color and the rail always marking Overview active. The layered orbit mark now has explicit ink, and the scroll-aware state keeps the selected section honest.
 - A browser recheck found that mobile tab alignment was using `scrollIntoView()` on a link inside the top rail. That could pull the document back to the rail after an anchor click. The fix scrolls only the nav element horizontally with `nav.scrollTo()` and leaves the page's section jump intact.
+- The wide-screen evidence review showed a second state bug: the evidence panel was visible while the fixed 150px reading line still belonged to Incidents. The scroll marker is now 40% of the viewport, bounded between 180px and 420px, so the selected rail step follows what the reader is actually looking at across desktop and mobile sizes.
 
 ## Problems found and fixed
 

@@ -69,12 +69,12 @@ type Theme = "dark" | "light";
 type TraceStatus = "queued" | "checking" | "verified";
 type NavSection = "overview" | "identities" | "boundary" | "incidents" | "evidence";
 
-const navSections: Array<{ id: NavSection; icon: string; label: string; index: string }> = [
-  { id: "overview", icon: "◈", label: "Overview", index: "01" },
-  { id: "identities", icon: "◎", label: "Identities", index: "02" },
-  { id: "boundary", icon: "⌘", label: "Boundary", index: "03" },
-  { id: "incidents", icon: "△", label: "Incidents", index: "04" },
-  { id: "evidence", icon: "≋", label: "Evidence", index: "05" },
+const navSections: Array<{ id: NavSection; icon: string; label: string; index: string; detail: string }> = [
+  { id: "overview", icon: "◈", label: "Overview", index: "01", detail: "see the trust graph" },
+  { id: "identities", icon: "◎", label: "Identities", index: "02", detail: "name who is trusted" },
+  { id: "boundary", icon: "⌘", label: "Boundary", index: "03", detail: "prove keys stay protected" },
+  { id: "incidents", icon: "△", label: "Incidents", index: "04", detail: "contain the unknown" },
+  { id: "evidence", icon: "≋", label: "Evidence", index: "05", detail: "verify what happened" },
 ];
 
 function getInitialNavSection(): NavSection {
@@ -292,7 +292,10 @@ function App() {
 
   useEffect(() => {
     const updateActiveSection = () => {
-      const marker = window.scrollY + 150;
+      // Use a reading line inside the viewport instead of a fixed document
+      // offset. A 150px line works on phones but leaves a visible Evidence
+      // panel looking like Incidents on a tall desktop viewport.
+      const marker = window.scrollY + Math.min(Math.max(window.innerHeight * 0.4, 180), 420);
       const current = [...navSections].reverse().find((section) => {
         const element = document.getElementById(section.id);
         return element ? element.getBoundingClientRect().top + window.scrollY <= marker : false;
@@ -348,6 +351,7 @@ function App() {
   const hasContainmentEvidence = snapshot.events.some((event) => ["identity_quarantined", "certificate_revoked"].includes(event.event_type));
   const storyStep = openIncidents.length > 0 ? 3 : recoveryCompleted ? 4 : hasRecordedDecision ? 2 : snapshot.identities.length > 0 ? 1 : 1;
   const displayedEvents = showAllEvents ? [...snapshot.events].reverse() : [...snapshot.events].reverse().slice(0, 8);
+  const activeSectionMeta = navSections.find((section) => section.id === activeSection) ?? navSections[0];
   const liveSequence = [
     { label: "IDENTITIES", detail: `${snapshot.identities.length} registered`, reached: snapshot.identities.length > 0 },
     { label: "X.509 / PKI", detail: `${snapshot.certificates.length} issued`, reached: hasCertificateEvidence || snapshot.certificates.length > 0 },
@@ -513,6 +517,12 @@ function App() {
         <nav ref={navRef} aria-label="Primary navigation">
           {navSections.map((section) => <a className={`nav-link ${activeSection === section.id ? "active" : ""}`} data-nav-section={section.id} aria-current={activeSection === section.id ? "page" : undefined} key={section.id} href={`#${section.id}`} onClick={() => setActiveSection(section.id)}><span className="nav-icon">{section.icon}</span>{section.label}<span className="nav-index">{section.index}</span></a>)}
         </nav>
+        <div className="rail-guide" aria-live="polite">
+          <span className="rail-guide-label">READ THE TRUST STORY</span>
+          <strong>{activeSectionMeta.index} / {activeSectionMeta.label}</strong>
+          <p>{activeSectionMeta.detail}</p>
+          <small>observe <b>→</b> decide <b>→</b> contain <b>→</b> recover <b>→</b> prove</small>
+        </div>
         <div className="rail-bottom">
           <div className="rail-caption">LOCAL LAB / SYNTHETIC DATA</div>
           <div className="rail-system"><span className="pulse-dot" />All systems observable</div>
