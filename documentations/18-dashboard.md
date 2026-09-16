@@ -35,7 +35,7 @@ The 3D effect is CSS-only and decorative. It does not alter security decisions. 
 - The page polls the API every five seconds and exposes failures instead of replacing them with fake green state.
 - Polls are serialized so a slow request cannot be overtaken by a newer request and overwrite the screen with stale data. Selection is also repaired if the selected identity disappears.
 - The registry opens on the newest twelve identities while preserving the full total in the API and audit history. When a demo Alpha exists, the latest Alpha is selected so the approval story is the first credential dossier shown. This keeps repeated synthetic runs from pushing the incident and evidence panels out of reach.
-- At widths below 720px the fixed rail becomes a horizontally scrollable top navigation, grids stack, buttons become comfortable touch targets, metadata grows, and low-priority columns collapse. Below 460px the detail actions stack and the HSM facts become one column.
+- At widths below 720px the fixed rail becomes a horizontally scrollable top navigation, grids stack, buttons become comfortable touch targets, metadata grows, and low-priority columns collapse. Below 460px the detail actions stack and the HSM facts become one column. The final readability pass raises operational labels, metadata, status pills, and evidence text; on phone widths the audit table becomes two-line evidence cards so event, actor, result, and time remain readable without desktop-sized columns.
 
 ## Local run
 
@@ -55,9 +55,11 @@ Or start the full local console from the project root with `docker compose up -d
 - The dashboard source is wired to the real API rather than static sample data.
 - In-browser verification showed the button entering the disabled `ISSUING X.509 CREDENTIALS…` state, then completing with the notice `Story launched: Alpha is awaiting approval; Beta was denied.` The same run updated the live counters, selected Alpha, rendered the certificate dossier, and added the latest audit events.
 - Visual inspection showed the protected panel with `PKCS#11`, `meridian-hsm`, `PKCS#11 / SoftHSM2`, `private key isolated`, and the request path `API request -> HSM sign -> certificate returned`.
+- Visual inspection at the narrow in-app-browser viewport showed the enlarged audit entries as readable cards, including event names such as `Certificate Revoked`, actor/fingerprint context, `SUCCESS`, sequence numbers, and relative times.
 
 ## Problems found and fixed
 
 1. The first container proxy check returned `ECONNREFUSED` because the Vite target was `localhost:8000` from inside the web container. A Compose-specific `VITE_API_TARGET` now points to `meridian-api`, while host development keeps the localhost default.
 2. The first host type-check failed because Vite's `process.env` access lacked Node declarations. `@types/node` was added and the production build passed.
 3. One earlier browser tab held a stale Vite module graph after a source edit. Restarting only `meridian-web` refreshed the module graph; the browser then showed the new live panel and the real in-progress sequence. The current visual review used the local in-app browser. The responsive CSS is covered by explicit 720px and 460px breakpoints; an automated pixel-diff across multiple device widths is still future work.
+4. The first audit layout was technically responsive but still too small to scan. A final CSS readability layer increased the type scale across the console and replaces the phone audit grid with stacked cards under 520px. This keeps the evidence hierarchy intact while preventing actors, results, and timestamps from collapsing into microscopic cells.
