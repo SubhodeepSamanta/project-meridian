@@ -1,6 +1,14 @@
 from fastapi import FastAPI
 
-from app.api.routes import actions, audit, certificates, health, identities, incidents
+from app.api.routes import (
+    actions,
+    audit,
+    certificates,
+    health,
+    identities,
+    incidents,
+    protected_boundary,
+)
 from app.core.config import Settings, settings
 from app.db.database import create_database, ensure_schema
 from app.integrations.step_ca import StepCaClient
@@ -22,12 +30,23 @@ def create_app(
         password_file=app_settings.step_ca_password_file,
         certificate_directory=app_settings.certificate_directory,
     )
+    app.state.hsm_ca = (
+        StepCaClient(
+            ca_url=app_settings.hsm_ca_url,
+            root_path=app_settings.hsm_ca_root,
+            password_file="",
+            certificate_directory=app_settings.certificate_directory,
+        )
+        if app_settings.hsm_ca_url and app_settings.hsm_ca_root
+        else None
+    )
     app.include_router(health.router)
     app.include_router(identities.router)
     app.include_router(certificates.router)
     app.include_router(actions.router)
     app.include_router(incidents.router)
     app.include_router(audit.router)
+    app.include_router(protected_boundary.router)
     return app
 
 

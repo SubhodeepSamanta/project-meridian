@@ -13,6 +13,8 @@ class Settings:
     certificate_directory: str = os.getenv(
         "MERIDIAN_CERTIFICATE_DIRECTORY", "./certificates"
     )
+    hsm_ca_url: str = os.getenv("MERIDIAN_HSM_CA_URL", "")
+    hsm_ca_root: str = os.getenv("MERIDIAN_HSM_CA_ROOT", "")
 
 
 settings = Settings()

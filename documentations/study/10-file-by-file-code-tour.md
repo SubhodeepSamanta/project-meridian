@@ -38,6 +38,7 @@ This is the runtime topology, not application business logic.
 - Lines 25–50 define `service-a`. It uses the stock Python image and mounts the simulator read-only. Environment variables tell the simulator its name, port, peer, certificate, private-key, and trusted-root paths. `depends_on` waits for a healthy CA, while its healthcheck proves an mTLS client can call its own endpoint.
 - Lines 52–77 repeat the same contract for `service-b`, with the peer direction reversed. The duplication is deliberate: two independent identities make mutual TLS visible, and both services now report readiness.
 - Lines 79–104 define `meridian-api`. The Docker build comes from `apps/api`. The database is mounted at `/data`, while the CA root and provisioner password are read-only mounts. The API receives service-to-service DNS name `step-ca`, not host `localhost`; its healthcheck requires a healthy JSON response from the API itself.
+- The API also receives the HSM CA URL and public HSM root certificate. Only `/certs/hsm` is mounted; HSM secrets and token files are not mounted into the API container.
 - Lines 106–120 define `hsm-ca`. The custom image installs SoftHSM2 into the CGO-enabled `step-ca:hsm` image. The token directory is mounted separately from the CA configuration so the script can remove only the token boundary during the failure test.
 - Lines 122–141 define `meridian-web`. The source is mounted for a fast local loop, while a named volume keeps `node_modules` inside Docker. `npm ci` follows the lockfile on each container start, `VITE_API_TARGET=http://meridian-api:8000` points at the Compose service, and the healthcheck verifies the Vite server. `localhost` inside this container means the web container itself.
 - Lines 143–144 declare the named dependency volume. It is cache, not source, and is intentionally absent from Git.
@@ -73,7 +74,7 @@ SoftHSM is a software model of an HSM boundary. It is useful for API and integra
 
 - Lines 1–2 import the dataclass decorator and `os` environment access.
 - Lines 5–15 define frozen `Settings`. Frozen means a running app cannot accidentally mutate its configuration object.
-- Each field reads an environment variable and has a local default: database URL, CA URL, trusted root path, password-file path, and certificate output directory.
+- Each field reads an environment variable and has a local default: database URL, CA URL, trusted root path, password-file path, certificate output directory, and optional HSM CA URL/root paths. Empty HSM settings keep isolated unit tests from probing a real container.
 - `Settings` contains locations and connection values, not secret contents. The password is mounted as a file and never placed in source.
 - Line 18 creates one default `settings` object for production-like startup. Tests can pass a different `Settings` object to `create_app`.
 
@@ -193,6 +194,10 @@ The injected client is the seam between fast unit tests and real Docker integrat
 ### `apps/api/app/api/routes/health.py`
 
 `health` lines 10–27 performs two independent checks. Lines 12–19 execute `select 1` and close the session; lines 21–22 call the CA adapter and combine both statuses; lines 23–27 return structured JSON. “Degraded” is more useful than a false all-good response when either dependency is unavailable.
+
+### `apps/api/app/api/routes/protected_boundary.py`
+
+`protected_boundary` exposes a small operator-facing description of the protected signing boundary. It calls the configured HSM CA's certificate-verified health command, then returns the synthetic token label, PKCS#11 object names, and the API's intentionally unmounted disk-key boundary. It reports `unavailable` when the HSM CA is not configured or cannot be reached; it does not expose a PIN, private key, or token file.
 
 ### `apps/api/app/api/routes/identities.py`
 
@@ -341,7 +346,7 @@ Lines 1–4 import React, ReactDOM, the root component, and CSS. Lines 6–9 fin
 
 - Lines 1–80 define TypeScript mirrors of health, identity, certificate, action, incident, audit, and aggregate snapshot JSON.
 - `request<T>` lines 84–100 is the typed fetch boundary. It merges JSON headers, preserves caller options, converts non-2xx responses into useful errors, and returns decoded JSON as `T`.
-- `loadSnapshot` requests seven resources concurrently with `Promise.all`, including audit integrity; the dashboard gets one coherent refresh cycle.
+- `loadSnapshot` requests eight resources concurrently with `Promise.all`, including audit integrity and the protected-boundary status; the dashboard gets one coherent refresh cycle.
 - `createIdentity` lines 114–122 posts a validated identity payload.
 - `issueCertificate` lines 124–129 posts one SAN and the 24-hour demo lifetime.
 - `quarantineIdentity` lines 131–133 posts the lifecycle transition.
@@ -362,13 +367,14 @@ Lines 1–4 import React, ReactDOM, the root component, and CSS. Lines 6–9 fin
   - The `useEffect` at lines 80–84 performs an immediate load, starts a five-second poll, and cleans up the interval.
   - Lines 86–98 derive selected identity/certificates, active certificate, pending approvals, open incidents, expiry radar, recovery completion, narrative step, and displayed audit rows.
   - `perform` lines 100–112 centralizes busy-state handling, notices, refresh-after-write, error display, and cleanup.
-  - `launchStory` lines 114–145 creates a unique agent, issues its certificate, performs a safe read, submits a high-risk rotation request, selects the new agent, refreshes, and tells the operator that the approval gate is waiting.
+  - `launchStory` creates unique Alpha and Beta agents, issues both certificates, performs Alpha's allowed read, records Beta's denied delete attempt, submits Alpha's high-risk rotation request, selects Alpha, refreshes, and tells the operator that the approval gate is waiting.
   - `identityAction` lines 147–153 finds an active credential for a registry row.
   - Lines 155–180 render the fixed rail, brand, navigation, topbar, poll indicator, and health status.
   - Lines 182–209 render the hero and CSS 3D constellation. Orbit rings, connecting lines, four live nodes, a central Meridian node, and a legend create depth without a heavy rendering library.
   - Lines 211–216 render active identities, expiry radar, incident count, and audit sequence.
   - Lines 218–223 render Observe → Decide → Contain → Recover progress; `storyStep` never pretends recovery happened.
   - Lines 225–252 render the identity registry and selected identity panel. Rows are real buttons, selected state is explicit, permissions become tags, fingerprint/algorithm are shown, and actions call the real API.
+  - The boundary section renders live `hsm-ca` status, token/object metadata, and an explicit “not mounted” API disk-key fact; it is explanatory UI over an API health check, not a mock signing operation.
   - Lines 254–258 render incident theatre and the policy approval gate.
   - Lines 260–262 render the audit table, optional full sequence, hash-link indicator, verified-chain badge, and honest synthetic/local footer.
 - Line 269 exports the root component.
@@ -388,6 +394,8 @@ Lines 1–4 import React, ReactDOM, the root component, and CSS. Lines 6–9 fin
 ### `apps/api/tests/test_api.py`
 
 - `FakeStepCaClient` lines 11–44 provides deterministic health, issuance, and revocation without shelling out. `issue_count` makes each fake certificate different so renewal and recovery cannot accidentally reuse an old identity.
+- `test_protected_boundary_is_explicit_when_not_configured` verifies that an isolated app reports the HSM boundary honestly instead of claiming it is healthy.
+- `test_step_ca_issue_failure_handles_missing_cli_output` verifies a failed CA subprocess with empty stdout/stderr becomes a controlled `StepCaError`, not a secondary string-slicing exception.
 - `make_client` lines 47–52 creates an in-memory app with a fake integration.
 - `create_identity` lines 55–67 posts the common valid identity fixture.
 - `issue_identity_certificate` lines 70–76 posts the common certificate fixture.

@@ -78,6 +78,15 @@ export type AuditIntegrity = {
   error: string | null;
 };
 
+export type ProtectedBoundary = {
+  status: string;
+  token_label: string;
+  key_store: string;
+  key_objects: string[];
+  api_disk_key_access: string;
+  ca_endpoint: string;
+};
+
 export type Snapshot = {
   health: Health | null;
   identities: Identity[];
@@ -86,6 +95,7 @@ export type Snapshot = {
   incidents: Incident[];
   events: AuditEvent[];
   integrity: AuditIntegrity | null;
+  protectedBoundary: ProtectedBoundary | null;
 };
 
 const API_ROOT = "/api";
@@ -109,7 +119,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export async function loadSnapshot(): Promise<Snapshot> {
-  const [health, identities, certificates, actions, incidents, events, integrity] = await Promise.all([
+  const [health, identities, certificates, actions, incidents, events, integrity, protectedBoundary] = await Promise.all([
     request<Health>("/health"),
     request<Identity[]>("/identities"),
     request<Certificate[]>("/certificates"),
@@ -117,8 +127,9 @@ export async function loadSnapshot(): Promise<Snapshot> {
     request<Incident[]>("/incidents"),
     request<AuditEvent[]>("/audit/events"),
     request<AuditIntegrity>("/audit/integrity"),
+    request<ProtectedBoundary>("/protected-boundary"),
   ]);
-  return { health, identities, certificates, actions, incidents, events, integrity };
+  return { health, identities, certificates, actions, incidents, events, integrity, protectedBoundary };
 }
 
 export async function createIdentity(input: {

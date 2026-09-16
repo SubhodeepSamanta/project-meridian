@@ -86,9 +86,12 @@ services:
       MERIDIAN_STEP_CA_ROOT: "/certs/ca/root_ca.crt"
       MERIDIAN_STEP_CA_PASSWORD_FILE: "/run/secrets/step_ca_password"
       MERIDIAN_CERTIFICATE_DIRECTORY: "/data/certificates"
+      MERIDIAN_HSM_CA_URL: "https://hsm-ca:9000"
+      MERIDIAN_HSM_CA_ROOT: "/certs/hsm/root_ca.crt"
     volumes:
       - ./.local/api:/data
       - ./infrastructure/step-ca/runtime/certs:/certs/ca:ro
+      - ./infrastructure/step-ca/hsm-runtime/certs:/certs/hsm:ro
       - ./infrastructure/step-ca/runtime/secrets/password:/run/secrets/step_ca_password:ro
       - ./infrastructure/step-ca/runtime/artifacts/identities:/data/certificates
     ports:

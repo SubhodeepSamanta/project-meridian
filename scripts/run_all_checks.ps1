@@ -37,7 +37,7 @@ Invoke-RequiredCommand docker @("compose", "up", "-d", "meridian-api", "meridian
 $webHealthy = $false
 for ($attempt = 1; $attempt -le 30; $attempt++) {
     try {
-        $health = Invoke-RestMethod -Uri "http://localhost:5173/api/health" -Method Get
+        $health = Invoke-RestMethod -Uri "http://127.0.0.1:5173/api/health" -Method Get
         if ($health.status -eq "healthy") {
             $webHealthy = $true
             break

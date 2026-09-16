@@ -50,7 +50,11 @@ class FakeStepCaClient:
 
 def make_client(step_ca: FakeStepCaClient | None = None) -> TestClient:
     app = create_app(
-        Settings(database_url="sqlite+pysqlite:///:memory:"),
+        Settings(
+            database_url="sqlite+pysqlite:///:memory:",
+            hsm_ca_url="",
+            hsm_ca_root="",
+        ),
         step_ca_client=step_ca or FakeStepCaClient(),
     )
     return TestClient(app)
@@ -91,6 +95,21 @@ def test_identity_registration_creates_audit_event() -> None:
         assert [event["sequence"] for event in events] == [1]
         assert events[0]["previous_event_hash"] is None
         assert events[0]["event_hash"]
+
+
+def test_protected_boundary_is_explicit_when_not_configured() -> None:
+    with make_client() as client:
+        response = client.get("/protected-boundary")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "status": "unavailable",
+            "token_label": "meridian-hsm",
+            "key_store": "PKCS#11 / SoftHSM2",
+            "key_objects": ["meridian-hsm-root", "meridian-hsm-intermediate"],
+            "api_disk_key_access": "not mounted",
+            "ca_endpoint": "not configured",
+        }
 
 
 def test_certificate_issuance_returns_metadata_without_private_key() -> None:

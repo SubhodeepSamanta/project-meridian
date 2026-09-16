@@ -114,3 +114,12 @@ class AuditIntegrityResponse(BaseModel):
     checked_through_sequence: int
     first_invalid_sequence: int | None
     error: str | None
+
+
+class ProtectedBoundaryResponse(BaseModel):
+    status: str
+    token_label: str
+    key_store: str
+    key_objects: list[str]
+    api_disk_key_access: str
+    ca_endpoint: str

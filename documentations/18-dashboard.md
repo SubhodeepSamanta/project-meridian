@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The dashboard makes Meridian's invisible security activity understandable without inventing a second source of truth. It reads the API's health, identity, certificate, action, incident, and audit endpoints and turns them into one operational narrative.
+The dashboard makes Meridian's invisible security activity understandable without inventing a second source of truth. It reads the API's health, identity, certificate, action, incident, audit, and protected-boundary endpoints and turns them into one operational narrative.
 
 ## Visual language
 
@@ -17,15 +17,17 @@ The interface is a dark, instrument-like control room rather than a generic CRUD
 - the incident theatre shows open versus resolved response state;
 - the audit table exposes sequence numbers, event result, time, and hash-chain linkage.
 - the evidence header verifies the complete hash chain and reports the first broken sequence if stored evidence is tampered with.
+- the protected-key panel checks the separate HSM-backed CA and shows the PKCS#11 token/object boundary without exposing key material.
 
 The 3D effect is CSS-only and decorative. It does not alter security decisions. The browser never receives a CA private key or a private-key path.
 
 ## Real interactions
 
-- `Run the trust sequence` creates a synthetic agent, issues its certificate, records an allowed action, and opens a high-risk approval request.
+- `Run the trust sequence` creates synthetic Agent Alpha and Agent Beta, issues both certificates, records Alpha's allowed action, records Beta's denied `delete_data` request, and opens Alpha's high-risk approval request.
 - Identity detail actions issue a certificate, quarantine an identity, or open the compromise flow.
 - Pending high-risk actions can be approved from the policy gate.
 - Open incidents can be recovered from the incident theatre.
+- The protected-boundary panel reports live `hsm-ca` reachability, the `meridian-hsm` token identity, PKCS#11 objects, and the fact that CA private-key files are not mounted into the API.
 - The page polls the API every five seconds and exposes failures instead of replacing them with fake green state.
 - Polls are serialized so a slow request cannot be overtaken by a newer request and overwrite the screen with stale data. Selection is also repaired if the selected identity disappears.
 
@@ -35,14 +37,15 @@ Host development uses `npm run dev` in `apps/web` and proxies `/api` to `http://
 
 From the web folder run `npm install` and `npm run build`.
 
-Or start the full local console from the project root with `docker compose up -d meridian-web`. Open `http://localhost:5173` in a browser.
+Or start the full local console from the project root with `docker compose up -d meridian-web`. Open `http://127.0.0.1:5173` in a browser. Using the IPv4 loopback avoids Windows/Docker Desktop IPv6 loopback differences.
 
 ## Verification performed
 
 - TypeScript project build passed.
 - Vite production bundle passed.
-- `GET http://localhost:5173/` returned HTTP 200 and the Meridian title.
-- `GET http://localhost:5173/api/health` returned healthy API, database, and certificate authority states through the Compose proxy.
+- `GET http://127.0.0.1:5173/` returned HTTP 200 and the Meridian title.
+- `GET http://127.0.0.1:5173/api/health` returned healthy API, database, and certificate authority states through the Compose proxy.
+- `GET http://127.0.0.1:5173/api/protected-boundary` returned the HSM-backed CA status through the Compose proxy.
 - The dashboard source is wired to the real API rather than static sample data.
 
 ## Problems found and fixed

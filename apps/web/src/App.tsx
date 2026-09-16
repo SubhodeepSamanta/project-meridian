@@ -23,6 +23,7 @@ const emptySnapshot: Snapshot = {
   incidents: [],
   events: [],
   integrity: null,
+  protectedBoundary: null,
 };
 
 function formatAge(value: string): string {
@@ -114,7 +115,8 @@ function App() {
   const expiringCertificates = snapshot.certificates.filter((certificate) => ["expiring_soon", "expired"].includes(certificate.lifecycle_status));
   const activeIdentities = snapshot.identities.filter((identity) => identity.status === "active").length;
   const recoveryCompleted = snapshot.events.some((event) => event.event_type === "recovery_completed");
-  const storyStep = openIncidents.length > 0 ? 3 : recoveryCompleted ? 4 : snapshot.identities.length > 0 ? 2 : 1;
+  const hasRecordedDecision = snapshot.events.some((event) => ["action_allowed", "action_denied", "action_approval_required", "action_approved"].includes(event.event_type));
+  const storyStep = openIncidents.length > 0 ? 3 : recoveryCompleted ? 4 : hasRecordedDecision ? 2 : snapshot.identities.length > 0 ? 1 : 1;
   const displayedEvents = showAllEvents ? [...snapshot.events].reverse() : [...snapshot.events].reverse().slice(0, 8);
 
   async function perform(label: string, operation: () => Promise<unknown>, success: string) {
@@ -137,17 +139,30 @@ function App() {
     const run = crypto.randomUUID().slice(0, 8);
     try {
       const alpha = await createIdentity({
-        name: `agent-navigator-${run}`,
+        name: `agent-alpha-${run}`,
         kind: "agent",
         owner: "meridian-console",
-        purpose: "guided trust lifecycle story",
+        purpose: "primary actor in the trust-under-pressure story",
         allowed_actions: ["read_status", "rotate_certificate"],
       });
+      const beta = await createIdentity({
+        name: `agent-beta-${run}`,
+        kind: "agent",
+        owner: "meridian-console",
+        purpose: "least-privilege counterexample",
+        allowed_actions: ["read_status"],
+      });
       const alphaCertificate = await issueCertificate(alpha.id, alpha.name);
+      const betaCertificate = await issueCertificate(beta.id, beta.name);
       await requestAction(alpha.id, {
         action: "read_status",
         target: "service-a",
         certificate_fingerprint: alphaCertificate.fingerprint,
+      });
+      await requestAction(beta.id, {
+        action: "delete_data",
+        target: "service-a",
+        certificate_fingerprint: betaCertificate.fingerprint,
       });
       await requestAction(alpha.id, {
         action: "rotate_certificate",
@@ -156,7 +171,7 @@ function App() {
       });
       setSelectedId(alpha.id);
       await refresh();
-      setNotice({ kind: "good", text: "Story launched: Alpha is waiting at the approval gate." });
+      setNotice({ kind: "good", text: "Story launched: Alpha is awaiting approval; Beta was denied." });
     } catch (error) {
       setNotice({ kind: "bad", text: error instanceof Error ? error.message : "Could not launch the story" });
     } finally {
@@ -180,8 +195,9 @@ function App() {
         <nav aria-label="Primary navigation">
           <a className="nav-link active" href="#overview"><span className="nav-icon">◈</span>Overview<span className="nav-index">01</span></a>
           <a className="nav-link" href="#identities"><span className="nav-icon">◎</span>Identities<span className="nav-index">02</span></a>
-          <a className="nav-link" href="#incidents"><span className="nav-icon">△</span>Incidents<span className="nav-index">03</span></a>
-          <a className="nav-link" href="#evidence"><span className="nav-icon">≋</span>Evidence<span className="nav-index">04</span></a>
+          <a className="nav-link" href="#boundary"><span className="nav-icon">⌘</span>Boundary<span className="nav-index">03</span></a>
+          <a className="nav-link" href="#incidents"><span className="nav-icon">△</span>Incidents<span className="nav-index">04</span></a>
+          <a className="nav-link" href="#evidence"><span className="nav-icon">≋</span>Evidence<span className="nav-index">05</span></a>
         </nav>
         <div className="rail-bottom">
           <div className="rail-caption">LOCAL LAB / SYNTHETIC DATA</div>
@@ -242,9 +258,34 @@ function App() {
             </div>
           </section>
 
+          <section className="boundary-section" id="boundary">
+            <div className="panel boundary-panel rounded-xl shadow-panel">
+              <div className="panel-heading">
+                <div><SectionEyebrow number="02" label="PROTECTED KEY BOUNDARY" /><h2>Signing stays behind the line.</h2></div>
+                <StatusPill value={snapshot.protectedBoundary?.status === "healthy" ? "protected" : snapshot.protectedBoundary ? "unavailable" : "checking"} />
+              </div>
+              <div className="boundary-grid">
+                <div className="boundary-visual" aria-label="PKCS11 protected key boundary">
+                  <div className="boundary-ring boundary-ring-one" /><div className="boundary-ring boundary-ring-two" />
+                  <div className="boundary-lock">⌘</div><strong>PKCS#11</strong><small>signing boundary</small>
+                </div>
+                <div className="boundary-facts">
+                  <div><span>TOKEN</span><strong>{snapshot.protectedBoundary?.token_label ?? "checking"}</strong></div>
+                  <div><span>KEY STORE</span><strong>{snapshot.protectedBoundary?.key_store ?? "checking"}</strong></div>
+                  <div><span>CA LINK</span><strong>{snapshot.protectedBoundary?.status === "healthy" ? "reachable · verified" : snapshot.protectedBoundary?.status ?? "checking"}</strong></div>
+                  <div><span>API DISK ACCESS</span><strong>{snapshot.protectedBoundary?.api_disk_key_access ?? "checking"}</strong></div>
+                </div>
+                <div className="boundary-copy">
+                  <p>The API can request a certificate, but it never receives the CA signing key. The live panel checks the separate HSM-backed CA; the token-loss exercise remains an explicit terminal workflow because the browser should observe that boundary, not control it.</p>
+                  <div className="boundary-objects"><span>OBJECTS</span>{(snapshot.protectedBoundary?.key_objects ?? ["waiting for token"]).map((object) => <code key={object}>{object}</code>)}</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section className="workspace-grid" id="identities">
             <div className="panel identities-panel rounded-xl shadow-panel">
-              <div className="panel-heading"><div><SectionEyebrow number="02" label="IDENTITY REGISTRY" /><h2>Who is trusted?</h2></div><span className="panel-count">{snapshot.identities.length.toString().padStart(2, "0")} records</span></div>
+              <div className="panel-heading"><div><SectionEyebrow number="03" label="IDENTITY REGISTRY" /><h2>Who is trusted?</h2></div><span className="panel-count">{snapshot.identities.length.toString().padStart(2, "0")} records</span></div>
               <div className="identity-list">
                 {snapshot.identities.length === 0 && <div className="empty-state">No identities yet. Run the trust sequence to create the first synthetic agent.</div>}
                 {snapshot.identities.map((identity) => {
@@ -261,7 +302,7 @@ function App() {
             </div>
 
             <div className="panel identity-detail-panel rounded-xl shadow-panel">
-              <div className="panel-heading compact"><div><SectionEyebrow number="03" label="SELECTED IDENTITY" /><h2>{selectedIdentity?.name ?? "Awaiting identity"}</h2></div><span className="detail-orb">✦</span></div>
+              <div className="panel-heading compact"><div><SectionEyebrow number="04" label="SELECTED IDENTITY" /><h2>{selectedIdentity?.name ?? "Awaiting identity"}</h2></div><span className="detail-orb">✦</span></div>
               {selectedIdentity ? <>
                 <div className="detail-meta"><div><span>OWNER</span><strong>{selectedIdentity.owner}</strong></div><div><span>PURPOSE</span><strong>{selectedIdentity.purpose}</strong></div></div>
                 <div className="authority-block"><div className="authority-title"><span>AUTHORITY ENVELOPE</span><em>{selectedIdentity.allowed_actions.length} grants</em></div><div className="tag-cloud">{selectedIdentity.allowed_actions.map((action) => <span key={action}>{action}</span>)}</div></div>
@@ -272,12 +313,12 @@ function App() {
           </section>
 
           <section className="lower-grid" id="incidents">
-            <div className="panel incidents-panel"><div className="panel-heading"><div><SectionEyebrow number="04" label="INCIDENT THEATRE" /><h2>When trust breaks.</h2></div><span className="panel-count">{snapshot.incidents.length.toString().padStart(2, "0")} stories</span></div><div className="incident-list">{snapshot.incidents.length === 0 && <div className="empty-state">No incidents. The quiet is earned by observable controls.</div>}{[...snapshot.incidents].reverse().slice(0, 4).map((incident) => { const owner = snapshot.identities.find((identity) => identity.id === incident.identity_id); return <div className={`incident-card ${incident.status}`} key={incident.id}><div className="incident-spine"><span>{incident.status === "open" ? "↯" : "✓"}</span></div><div className="incident-content"><div className="incident-top"><strong>{incident.reason}</strong><StatusPill value={incident.status} /></div><p>{owner?.name ?? shortId(incident.identity_id)} <span>·</span> opened {formatAge(incident.created_at)}</p>{incident.status === "open" ? <button className="inline-action" disabled={busy !== null} onClick={() => void perform("recover", () => recoverIncident(incident.id), "Replacement credential issued; identity recovered.")}>Begin verified recovery <span>↗</span></button> : <div className="resolved-copy">Recovered {formatDate(incident.resolved_at)} <span>· evidence complete</span></div>}</div></div>; })}</div></div>
+            <div className="panel incidents-panel"><div className="panel-heading"><div><SectionEyebrow number="05" label="INCIDENT THEATRE" /><h2>When trust breaks.</h2></div><span className="panel-count">{snapshot.incidents.length.toString().padStart(2, "0")} stories</span></div><div className="incident-list">{snapshot.incidents.length === 0 && <div className="empty-state">No incidents. The quiet is earned by observable controls.</div>}{[...snapshot.incidents].reverse().slice(0, 4).map((incident) => { const owner = snapshot.identities.find((identity) => identity.id === incident.identity_id); return <div className={`incident-card ${incident.status}`} key={incident.id}><div className="incident-spine"><span>{incident.status === "open" ? "↯" : "✓"}</span></div><div className="incident-content"><div className="incident-top"><strong>{incident.reason}</strong><StatusPill value={incident.status} /></div><p>{owner?.name ?? shortId(incident.identity_id)} <span>·</span> opened {formatAge(incident.created_at)}</p>{incident.status === "open" ? <button className="inline-action" disabled={busy !== null} onClick={() => void perform("recover", () => recoverIncident(incident.id), "Replacement credential issued; identity recovered.")}>Begin verified recovery <span>↗</span></button> : <div className="resolved-copy">Recovered {formatDate(incident.resolved_at)} <span>· evidence complete</span></div>}</div></div>; })}</div></div>
 
-            <div className="panel decision-panel"><div className="panel-heading"><div><SectionEyebrow number="05" label="POLICY GATE" /><h2>Intent meets authority.</h2></div><span className="panel-count">{pendingActions.length.toString().padStart(2, "0")} pending</span></div><div className="decision-list">{pendingActions.length === 0 && <div className="empty-state">No actions waiting for a human. Run the trust sequence to open an approval gate.</div>}{pendingActions.slice(-4).reverse().map((action: ActionRequest) => { const identity = snapshot.identities.find((item) => item.id === action.identity_id); return <div className="decision-card" key={action.id}><div className="decision-mark">!</div><div className="decision-content"><div className="decision-top"><strong>{action.action}</strong><span className="risk-label">{action.risk_level} risk</span></div><p>{identity?.name ?? shortId(action.identity_id)} <span>→</span> {action.target}</p><small>{action.reason}</small><button className="approve-button" disabled={busy !== null} onClick={() => void perform("approve", () => approveAction(action.id), "Operator approval recorded; action completed.")}>Approve action <span>↗</span></button></div></div>; })}</div></div>
+            <div className="panel decision-panel"><div className="panel-heading"><div><SectionEyebrow number="06" label="POLICY GATE" /><h2>Intent meets authority.</h2></div><span className="panel-count">{pendingActions.length.toString().padStart(2, "0")} pending</span></div><div className="decision-list">{pendingActions.length === 0 && <div className="empty-state">No actions waiting for a human. Run the trust sequence to open an approval gate.</div>}{pendingActions.slice(-4).reverse().map((action: ActionRequest) => { const identity = snapshot.identities.find((item) => item.id === action.identity_id); return <div className="decision-card" key={action.id}><div className="decision-mark">!</div><div className="decision-content"><div className="decision-top"><strong>{action.action}</strong><span className="risk-label">{action.risk_level} risk</span></div><p>{identity?.name ?? shortId(action.identity_id)} <span>→</span> {action.target}</p><small>{action.reason}</small><button className="approve-button" disabled={busy !== null} onClick={() => void perform("approve", () => approveAction(action.id), "Operator approval recorded; action completed.")}>Approve action <span>↗</span></button></div></div>; })}</div></div>
           </section>
 
-          <section className="evidence-section" id="evidence"><div className="panel evidence-panel"><div className="panel-heading"><div><SectionEyebrow number="06" label="AUDIT EVIDENCE" /><h2>The system remembers.</h2></div><div className="integrity-meta"><StatusPill value={snapshot.integrity ? snapshot.integrity.valid ? "verified" : "integrity_failed" : "checking"} /><span>{snapshot.integrity ? `${snapshot.integrity.checked_through_sequence}/${snapshot.integrity.event_count} checked` : "waiting for evidence"}</span><button className="text-button" onClick={() => setShowAllEvents((value) => !value)}>{showAllEvents ? "Show recent" : "View full sequence"} ↗</button></div></div><div className="audit-table"><div className="audit-table-head"><span>SEQ</span><span>EVENT</span><span>ACTOR / SUBJECT</span><span>RESULT</span><span>WHEN</span><span>CHAIN</span></div>{displayedEvents.length === 0 && <div className="empty-state">Audit evidence will appear here after the first state change.</div>}{displayedEvents.map((event: AuditEvent) => <div className="audit-row" key={event.id}><span className="audit-seq">{event.sequence.toString().padStart(3, "0")}</span><span className="audit-event"><i className={`event-dot ${tone(event.result)}`} /><strong>{event.event_type.replaceAll("_", " ")}</strong></span><span className="audit-actor">{event.actor}<small>{shortId(event.subject)}</small></span><StatusPill value={event.result} /><span className="audit-time">{formatAge(event.timestamp)}</span><span className="chain-link">{event.previous_event_hash ? "linked ↗" : "genesis ◇"}</span></div>)}</div>{snapshot.integrity && !snapshot.integrity.valid && <div className="integrity-warning" role="alert">Integrity check stopped at sequence {snapshot.integrity.first_invalid_sequence ?? "unknown"}: {snapshot.integrity.error ?? "audit chain is not valid"}.</div>}</div></section>
+          <section className="evidence-section" id="evidence"><div className="panel evidence-panel"><div className="panel-heading"><div><SectionEyebrow number="07" label="AUDIT EVIDENCE" /><h2>The system remembers.</h2></div><div className="integrity-meta"><StatusPill value={snapshot.integrity ? snapshot.integrity.valid ? "verified" : "integrity_failed" : "checking"} /><span>{snapshot.integrity ? `${snapshot.integrity.checked_through_sequence}/${snapshot.integrity.event_count} checked` : "waiting for evidence"}</span><button className="text-button" onClick={() => setShowAllEvents((value) => !value)}>{showAllEvents ? "Show recent" : "View full sequence"} ↗</button></div></div><div className="audit-table"><div className="audit-table-head"><span>SEQ</span><span>EVENT</span><span>ACTOR / SUBJECT</span><span>RESULT</span><span>WHEN</span><span>CHAIN</span></div>{displayedEvents.length === 0 && <div className="empty-state">Audit evidence will appear here after the first state change.</div>}{displayedEvents.map((event: AuditEvent) => <div className="audit-row" key={event.id}><span className="audit-seq">{event.sequence.toString().padStart(3, "0")}</span><span className="audit-event"><i className={`event-dot ${tone(event.result)}`} /><strong>{event.event_type.replaceAll("_", " ")}</strong></span><span className="audit-actor">{event.actor}<small>{shortId(event.subject)}</small></span><StatusPill value={event.result} /><span className="audit-time">{formatAge(event.timestamp)}</span><span className="chain-link">{event.previous_event_hash ? "linked ↗" : "genesis ◇"}</span></div>)}</div>{snapshot.integrity && !snapshot.integrity.valid && <div className="integrity-warning" role="alert">Integrity check stopped at sequence {snapshot.integrity.first_invalid_sequence ?? "unknown"}: {snapshot.integrity.error ?? "audit chain is not valid"}.</div>}</div></section>
 
           <footer className="footer"><span>PROJECT MERIDIAN / DIGITAL TRUST OPERATIONS</span><span>LOCAL POC · SYNTHETIC DATA · NOT PRODUCTION</span><span>BUILDING TRUST, ONE EVENT AT A TIME ✦</span></footer>
         </div>
