@@ -63,6 +63,17 @@ function SectionEyebrow({ number, label }: { number: string; label: string }) {
 }
 
 type DemoPhase = "idle" | "registering" | "issuing" | "evaluating" | "approval";
+type Theme = "dark" | "light";
+type TraceStatus = "queued" | "checking" | "verified";
+
+function getInitialTheme(): Theme {
+  if (typeof window === "undefined") return "dark";
+  try {
+    return window.localStorage.getItem("meridian-theme") === "light" ? "light" : "dark";
+  } catch {
+    return "dark";
+  }
+}
 
 const demoPhaseCopy: Record<Exclude<DemoPhase, "idle">, { button: string; title: string; detail: string }> = {
   registering: { button: "Registering Alpha + Beta…", title: "Registering two identities", detail: "Creating one permitted actor and one least-privilege counterexample." },
@@ -206,6 +217,7 @@ function TrustGraph({ snapshot }: { snapshot: Snapshot }) {
 
 function App() {
   const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot);
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "good" | "bad"; text: string } | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -249,6 +261,15 @@ function App() {
     return () => window.clearInterval(timer);
   }, [refresh]);
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      window.localStorage.setItem("meridian-theme", theme);
+    } catch {
+      // Theme still works for this session when storage is unavailable.
+    }
+  }, [theme]);
+
   const selectedIdentity = snapshot.identities.find((identity) => identity.id === selectedId) ?? null;
   const selectedCertificates = useMemo(
     () => snapshot.certificates.filter((certificate) => certificate.identity_id === selectedIdentity?.id),
@@ -289,6 +310,56 @@ function App() {
             ? { title: "Ready to prove trust", detail: "Launch the sequence to create identities, issue credentials, and exercise policy." }
             : { title: "Connecting to the trust surface", detail: "The console is waiting for the API and protected CA to report healthy." };
   const liveCurrentIndex = demoPhase === "registering" ? 0 : demoPhase === "issuing" ? 1 : demoPhase === "evaluating" || demoPhase === "approval" ? 2 : openIncidents.length > 0 ? 3 : recoveryCompleted ? 3 : hasRecordedDecision ? 2 : hasCertificateEvidence ? 1 : 0;
+  const latestEvent = snapshot.events.reduce<AuditEvent | null>(
+    (latest, event) => (!latest || event.sequence > latest.sequence ? event : latest),
+    null,
+  );
+  const liveChecks: Array<{ label: string; detail: string; source: string; status: TraceStatus }> = [
+    {
+      label: "IDENTITY",
+      detail: demoPhase === "registering"
+        ? "Registration request in flight"
+        : snapshot.identities.length > 0
+          ? `${snapshot.identities.length} identities visible to the API`
+          : "Queued behind registration",
+      source: "POST /identities",
+      status: demoPhase === "registering" ? "checking" : snapshot.identities.length > 0 ? "verified" : "queued",
+    },
+    {
+      label: "PKI / HSM",
+      detail: demoPhase === "issuing"
+        ? "Certificate signing crossing the protected boundary"
+        : snapshot.protectedBoundary?.status === "healthy" && snapshot.certificates.length > 0
+          ? `${snapshot.certificates.length} certificates returned through the CA`
+          : "Queued behind identity verification",
+      source: "POST /certificates → PKCS#11",
+      status: demoPhase === "issuing"
+        ? "checking"
+        : snapshot.protectedBoundary?.status === "healthy" && snapshot.certificates.length > 0
+          ? "verified"
+          : "queued",
+    },
+    {
+      label: "POLICY",
+      detail: demoPhase === "evaluating" || demoPhase === "approval"
+        ? "Comparing requested action with authority"
+        : hasRecordedDecision
+          ? `${snapshot.actions.length} server decisions recorded`
+          : "Queued behind credential verification",
+      source: "POST /actions → policy engine",
+      status: demoPhase === "evaluating" || demoPhase === "approval" ? "checking" : hasRecordedDecision ? "verified" : "queued",
+    },
+    {
+      label: "EVIDENCE",
+      detail: demoPhase !== "idle"
+        ? "Linking the response into the audit chain"
+        : snapshot.integrity?.valid && snapshot.events.length > 0
+          ? `${snapshot.integrity.checked_through_sequence}/${snapshot.integrity.event_count} events hash-checked`
+          : "Waiting for the first server event",
+      source: "GET /audit/integrity",
+      status: demoPhase !== "idle" ? "checking" : snapshot.integrity?.valid && snapshot.events.length > 0 ? "verified" : "queued",
+    },
+  ];
 
   async function perform(label: string, operation: () => Promise<unknown>, success: string) {
     setBusy(label);
@@ -400,6 +471,9 @@ function App() {
           <div className="breadcrumb"><span>CONTROL ROOM</span><b>/</b><span className="muted">TRUST OPERATIONS</span></div>
           <div className="top-actions">
             <span className="last-refresh">LIVE POLL / 5 SEC</span>
+            <button className="theme-toggle" type="button" onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")} aria-pressed={theme === "light"} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}>
+              <span className="theme-toggle-glyph" aria-hidden="true">{theme === "dark" ? "☼" : "◐"}</span><span className="theme-toggle-label">{theme === "dark" ? "LIGHT MODE" : "DARK MODE"}</span>
+            </button>
             <span className={`health-indicator ${snapshot.health?.status === "healthy" ? "online" : "offline"}`}><i />{snapshot.health?.status ?? "connecting"}</span>
           </div>
         </header>
@@ -417,11 +491,18 @@ function App() {
                 <a className="text-link underline-offset-4 hover:underline" href="#evidence">Trace the evidence <span>↓</span></a>
               </div>
               {(notice || connectionError) && <div className={`notice ${notice?.kind ?? "bad"}`} role="status">{notice?.text ?? `API: ${connectionError}`}</div>}
-              <div className="live-protocol" aria-live="polite">
+              <div className={`live-protocol ${busy === "story" ? "is-running" : ""}`} aria-live="polite" aria-busy={busy === "story"}>
                 <div className="live-protocol-top"><span className="live-label"><i /> LIVE EXECUTION</span><span className="live-poll-label">API SNAPSHOT / 5 SEC</span></div>
                 <div className="live-protocol-main"><div><strong>{liveState.title}</strong><p>{liveState.detail}</p></div><div className="live-event-count"><b>{snapshot.events.length.toString().padStart(3, "0")}</b><span>events<br />linked</span></div></div>
                 <div className="protocol-steps">
                   {liveSequence.map((step, index) => <div className={`protocol-step ${step.reached ? "reached" : ""} ${index === liveCurrentIndex ? "current" : ""}`} key={step.label}><span className="protocol-dot">{step.reached ? "✓" : `0${index + 1}`}</span><div><strong>{step.label}</strong><small>{demoPhase !== "idle" && index === liveCurrentIndex ? demoPhaseCopy[demoPhase].detail : step.detail}</small></div></div>)}
+                </div>
+                <div className="operator-trace" aria-label="Live server verification checks">
+                  <div className="trace-heading"><span>OPERATOR TRACE</span><span>LIVE SERVER CHECKS</span></div>
+                  <div className="trace-list">
+                    {liveChecks.map((check) => <div className={`trace-check ${check.status}`} key={check.label}><div className="trace-check-top"><span className="trace-check-mark"><i /></span><strong>{check.label}</strong><em>{check.status}</em></div><p>{check.detail}</p><small>{check.source}</small></div>)}
+                  </div>
+                  <div className="trace-last"><span>LAST SERVER EVENT</span><strong>{latestEvent ? latestEvent.event_type.replaceAll("_", " ") : "Awaiting first event"}</strong><small>{latestEvent ? `${latestEvent.actor} · ${formatAge(latestEvent.timestamp)}` : "No audit event recorded yet"}</small></div>
                 </div>
               </div>
             </div>

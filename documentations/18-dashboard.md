@@ -20,6 +20,7 @@ The interface is a dark, instrument-like control room rather than a generic CRUD
 - the protected-key panel checks the separate HSM-backed CA and shows the PKCS#11 token/object boundary without exposing key material.
 - graph labels and health values come from the live snapshot; the graph is a topology view, not a substitute cryptographic proof graph.
 - the live execution panel narrates the API snapshot with four evidence checkpoints: identities, X.509/PKI, policy, and containment.
+- the operator trace turns those checkpoints into four server-facing checks with `queued`, `checking`, and `verified` states, endpoint labels, and the latest audit event; the running state adds a small scan cue so activity is visible without pretending to be a network animation.
 - the selected-identity panel presents an X.509 dossier with issuer, algorithm, serial, expiry, and a SHA-256 fingerprint; it never displays private key material.
 - incident cards make `presented -> unknown -> quarantined -> revoked` and `detected -> quarantined -> revoked -> recovered` visible as state tracks.
 
@@ -30,6 +31,7 @@ The graph is an observable topology view and does not alter security decisions. 
 - `Run the trust sequence` creates synthetic Agent Alpha and Agent Beta, issues both certificates, records Alpha's allowed action, records Beta's denied `delete_data` request, and opens Alpha's high-risk approval request.
 - During that sequence the button changes to `Registering Alpha + Beta`, `Issuing X.509 credentials`, `Evaluating policy`, and `Opening approval gate`, so the operator can see which real request is in progress.
 - The sequence deliberately pauses between registration, issuance, the allowed/denied policy checks, and the approval gate. Each checkpoint refreshes the API snapshot, so counters, graph health, and audit evidence visibly catch up while the operator is watching.
+- The top-bar theme control switches between the graphite dark console and a readable light console. The choice is stored in `localStorage`, the same live values and status colors remain in both modes, and the control is available as an accessible toggle.
 - Identity detail actions issue a certificate, quarantine an identity, or open the compromise flow.
 - Pending high-risk actions can be approved from the policy gate.
 - Open incidents can be recovered from the incident theatre.
@@ -59,6 +61,7 @@ Or start the full local console from the project root with `docker compose up -d
 - Visual inspection showed the protected panel with `PKCS#11`, `meridian-hsm`, `PKCS#11 / SoftHSM2`, `private key isolated`, and the request path `API request -> HSM sign -> certificate returned`.
 - Visual inspection at the narrow in-app-browser viewport showed the enlarged audit entries as readable cards, including event names such as `Certificate Revoked`, actor/fingerprint context, `SUCCESS`, sequence numbers, and relative times.
 - Visual inspection at the narrow in-app-browser viewport showed the connected graph with readable `PROTECTED HSM`, `ISSUING CA`, `MERIDIAN`, `CONTROL API`, `AGENTS`, and `SERVICES` nodes plus directed `PKCS#11`, `X.509`, `mTLS`, `policy`, and `evidence` edges. Clicking `AGENTS` changed the selected-node readout and reduced the graph to its two related edges.
+- Visual inspection showed the live operator trace moving through `CHECKING` during the showcase and `VERIFIED` after the final refresh, with real API endpoint labels and the latest audit event. The light-mode toggle remained active after a reload and the live data rehydrated without changing the theme.
 
 ## Problems found and fixed
 
@@ -68,3 +71,4 @@ Or start the full local console from the project root with `docker compose up -d
 4. The first audit layout was technically responsive but still too small to scan. A final CSS readability layer increased the type scale across the console and replaces the phone audit grid with stacked cards under 520px. This keeps the evidence hierarchy intact while preventing actors, results, and timestamps from collapsing into microscopic cells.
 5. The first topology was visually evocative but not a graph: it used orbit decoration and loose connector lines. The graph was replaced with an SVG edge layer plus live, selectable node buttons. This makes relationships inspectable while preserving the editorial visual language.
 6. On a narrow viewport, identity grid children retained their intrinsic desktop widths, which pushed status pills into the chevron and clipped labels such as `QUARANTINED`. `min-width: 0`, responsive grid columns, and a dedicated chevron column now keep identity names, state pills, and row links separated and readable.
+7. A single “running” label did not make the showcase feel observable enough. The operator trace now pairs each phase with the real API checkpoint it represents, shows what is queued or being checked, and surfaces the last event the server wrote to the hash chain. The theme control uses the same tokenized status system in both light and dark modes.
