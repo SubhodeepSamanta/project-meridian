@@ -12,7 +12,7 @@ The local POC now contains:
 - deterministic agent policy with allow, deny, and human approval-required decisions;
 - a SoftHSM2/PKCS#11-backed CA simulation using `step-ca:hsm`;
 - fail-closed token-unavailable behavior;
-- a React/TypeScript/Tailwind control room with a restrained CSS 3D trust topology and live API data;
+- a React/TypeScript/Tailwind control room with a restrained CSS 3D trust topology, live API data, visible sequence progress, certificate dossier, PKI boundary visual, and unknown-containment track;
 - repeatable policy, incident, HSM, and all-check scripts;
 - `documentations/study` teaching chapters from fundamentals through advanced limits, including a file-by-file/function-by-function code tour.
 
@@ -40,7 +40,7 @@ RECOVERY_EVIDENCE: PASS
 FULL_STACK_CHECKS: PASS
 ```
 
-The API tests emitted one upstream Starlette deprecation warning; it did not fail the suite. The warning is recorded for future dependency maintenance.
+The API tests emitted one upstream Starlette deprecation warning; it did not fail the suite. The warning is recorded for future dependency maintenance. The in-app browser also completed the primary policy showcase: the button visibly entered the issuing phase, then returned the Alpha approval-gate notice while Beta's unauthorized action was denied in the backend.
 
 ## Runtime state and safety
 
@@ -48,7 +48,7 @@ Generated CA state, SoftHSM token files, synthetic certificates, private keys, A
 
 ## Honest limitations
 
-This is not a production CA, commercial certificate manager, physical HSM, FIPS-validated system, complete revocation infrastructure, authenticated API, or formally certified security product. The action target and agent behavior are deterministic simulators. Browser visual automation was unavailable in this environment, so human visual/accessibility review remains advisable.
+This is not a production CA, commercial certificate manager, physical HSM, FIPS-validated system, complete revocation infrastructure, authenticated API, or formally certified security product. The action target and agent behavior are deterministic simulators. The local in-app browser was used for visual and interaction review. The dashboard was observed at a desktop viewport, and the source includes explicit 720px/460px responsive breakpoints for mobile. A full automated screenshot matrix and formal accessibility audit remain future work.
 
 ## Git delivery
 

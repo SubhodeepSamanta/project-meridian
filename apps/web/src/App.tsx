@@ -62,12 +62,26 @@ function SectionEyebrow({ number, label }: { number: string; label: string }) {
   return <div className="section-eyebrow"><span>{number}</span><span>{label}</span></div>;
 }
 
+type DemoPhase = "idle" | "registering" | "issuing" | "evaluating" | "approval";
+
+const demoPhaseCopy: Record<Exclude<DemoPhase, "idle">, { button: string; title: string; detail: string }> = {
+  registering: { button: "Registering Alpha + Beta…", title: "Registering two identities", detail: "Creating one permitted actor and one least-privilege counterexample." },
+  issuing: { button: "Issuing X.509 credentials…", title: "Issuing short-lived credentials", detail: "Sending certificate requests through the protected CA boundary." },
+  evaluating: { button: "Evaluating policy…", title: "Evaluating intent against authority", detail: "One action should pass, one should fail, and one should pause." },
+  approval: { button: "Opening approval gate…", title: "Waiting for a human decision", detail: "The high-risk rotation is paused until an operator approves it." },
+};
+
+function splitFingerprint(value: string): string {
+  return value.match(/.{1,8}/g)?.join(" · ") ?? value;
+}
+
 function App() {
   const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "good" | "bad"; text: string } | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [demoPhase, setDemoPhase] = useState<DemoPhase>("idle");
   const [showAllEvents, setShowAllEvents] = useState(false);
   const refreshInFlight = useRef<Promise<void> | null>(null);
 
@@ -84,7 +98,9 @@ function App() {
         setSelectedId((current) =>
           next.identities.some((identity) => identity.id === current)
             ? current
-            : next.identities[0]?.id ?? null,
+            : [...next.identities].reverse().find((identity) => identity.name.includes("agent-alpha"))?.id
+              ?? next.identities[next.identities.length - 1]?.id
+              ?? null,
         );
       } catch (error) {
         setConnectionError(error instanceof Error ? error.message : "API unavailable");
@@ -110,14 +126,40 @@ function App() {
     [snapshot.certificates, selectedIdentity?.id],
   );
   const selectedActiveCertificate = selectedCertificates.find((certificate) => certificate.status === "active") ?? null;
+  const recentIdentities = [...snapshot.identities].reverse().slice(0, 12);
+  const displayedIdentities = selectedIdentity && !recentIdentities.some((identity) => identity.id === selectedIdentity.id)
+    ? [selectedIdentity, ...recentIdentities.slice(0, 11)]
+    : recentIdentities;
   const pendingActions = snapshot.actions.filter((action) => action.decision === "approval_required");
   const openIncidents = snapshot.incidents.filter((incident) => incident.status === "open");
   const expiringCertificates = snapshot.certificates.filter((certificate) => ["expiring_soon", "expired"].includes(certificate.lifecycle_status));
   const activeIdentities = snapshot.identities.filter((identity) => identity.status === "active").length;
   const recoveryCompleted = snapshot.events.some((event) => event.event_type === "recovery_completed");
   const hasRecordedDecision = snapshot.events.some((event) => ["action_allowed", "action_denied", "action_approval_required", "action_approved"].includes(event.event_type));
+  const hasCertificateEvidence = snapshot.events.some((event) => event.event_type === "certificate_issued");
+  const hasContainmentEvidence = snapshot.events.some((event) => ["identity_quarantined", "certificate_revoked"].includes(event.event_type));
   const storyStep = openIncidents.length > 0 ? 3 : recoveryCompleted ? 4 : hasRecordedDecision ? 2 : snapshot.identities.length > 0 ? 1 : 1;
   const displayedEvents = showAllEvents ? [...snapshot.events].reverse() : [...snapshot.events].reverse().slice(0, 8);
+  const liveSequence = [
+    { label: "IDENTITIES", detail: `${snapshot.identities.length} registered`, reached: snapshot.identities.length > 0 },
+    { label: "X.509 / PKI", detail: `${snapshot.certificates.length} issued`, reached: hasCertificateEvidence || snapshot.certificates.length > 0 },
+    { label: "POLICY", detail: `${snapshot.actions.length} decisions`, reached: hasRecordedDecision },
+    { label: "CONTAINMENT", detail: openIncidents.length > 0 ? "isolate the unknown" : recoveryCompleted || hasContainmentEvidence ? "evidence recorded" : "standby", reached: openIncidents.length > 0 || recoveryCompleted || hasContainmentEvidence },
+  ];
+  const recentIncidents = [...snapshot.incidents].reverse();
+  const displayedIncidents = [...openIncidents, ...recentIncidents.filter((incident) => incident.status !== "open").slice(0, Math.max(0, 4 - openIncidents.length))];
+  const liveState = demoPhase !== "idle"
+    ? demoPhaseCopy[demoPhase]
+    : openIncidents.length > 0
+      ? { title: "Containment is active", detail: "An unknown credential is isolated while the audit chain records the response." }
+      : pendingActions.length > 0
+        ? { title: "Human approval is the next gate", detail: "A high-risk action is paused; the operator decision is visible in the policy panel." }
+        : hasRecordedDecision
+          ? { title: "Policy has a recorded decision", detail: "Allowed and denied actions are visible beside their certificates and evidence." }
+          : snapshot.health?.status === "healthy"
+            ? { title: "Ready to prove trust", detail: "Launch the sequence to create identities, issue credentials, and exercise policy." }
+            : { title: "Connecting to the trust surface", detail: "The console is waiting for the API and protected CA to report healthy." };
+  const liveCurrentIndex = demoPhase === "registering" ? 0 : demoPhase === "issuing" ? 1 : demoPhase === "evaluating" || demoPhase === "approval" ? 2 : openIncidents.length > 0 ? 3 : recoveryCompleted ? 3 : hasRecordedDecision ? 2 : hasCertificateEvidence ? 1 : 0;
 
   async function perform(label: string, operation: () => Promise<unknown>, success: string) {
     setBusy(label);
@@ -135,6 +177,7 @@ function App() {
 
   async function launchStory() {
     setBusy("story");
+    setDemoPhase("registering");
     setNotice(null);
     const run = crypto.randomUUID().slice(0, 8);
     try {
@@ -152,8 +195,10 @@ function App() {
         purpose: "least-privilege counterexample",
         allowed_actions: ["read_status"],
       });
+      setDemoPhase("issuing");
       const alphaCertificate = await issueCertificate(alpha.id, alpha.name);
       const betaCertificate = await issueCertificate(beta.id, beta.name);
+      setDemoPhase("evaluating");
       await requestAction(alpha.id, {
         action: "read_status",
         target: "service-a",
@@ -164,6 +209,7 @@ function App() {
         target: "service-a",
         certificate_fingerprint: betaCertificate.fingerprint,
       });
+      setDemoPhase("approval");
       await requestAction(alpha.id, {
         action: "rotate_certificate",
         target: alpha.name,
@@ -175,6 +221,7 @@ function App() {
     } catch (error) {
       setNotice({ kind: "bad", text: error instanceof Error ? error.message : "Could not launch the story" });
     } finally {
+      setDemoPhase("idle");
       setBusy(null);
     }
   }
@@ -223,11 +270,18 @@ function App() {
               <p className="hero-lede">Meridian turns machine and agent identity into an observable operating story—from first issuance to the moment a compromised credential is contained.</p>
               <div className="hero-cta-row">
                 <button className="primary-button rounded-sm shadow-aura focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-meridian-cyan/70" onClick={() => void launchStory()} disabled={busy !== null}>
-                  <span className="button-glyph">+</span>{busy === "story" ? "Running sequence…" : "Run the trust sequence"}<span className="button-arrow">↗</span>
+                  <span className="button-glyph">{busy === "story" ? "◌" : "+"}</span>{busy === "story" && demoPhase !== "idle" ? demoPhaseCopy[demoPhase].button : "Run the trust sequence"}<span className="button-arrow">↗</span>
                 </button>
                 <a className="text-link underline-offset-4 hover:underline" href="#evidence">Trace the evidence <span>↓</span></a>
               </div>
               {(notice || connectionError) && <div className={`notice ${notice?.kind ?? "bad"}`} role="status">{notice?.text ?? `API: ${connectionError}`}</div>}
+              <div className="live-protocol" aria-live="polite">
+                <div className="live-protocol-top"><span className="live-label"><i /> LIVE EXECUTION</span><span className="live-poll-label">API SNAPSHOT / 5 SEC</span></div>
+                <div className="live-protocol-main"><div><strong>{liveState.title}</strong><p>{liveState.detail}</p></div><div className="live-event-count"><b>{snapshot.events.length.toString().padStart(3, "0")}</b><span>events<br />linked</span></div></div>
+                <div className="protocol-steps">
+                  {liveSequence.map((step, index) => <div className={`protocol-step ${step.reached ? "reached" : ""} ${index === liveCurrentIndex ? "current" : ""}`} key={step.label}><span className="protocol-dot">{step.reached ? "✓" : `0${index + 1}`}</span><div><strong>{step.label}</strong><small>{demoPhase !== "idle" && index === liveCurrentIndex ? demoPhaseCopy[demoPhase].detail : step.detail}</small></div></div>)}
+                </div>
+              </div>
             </div>
             <div className="constellation-card rounded-xl shadow-panel" aria-label="Live trust constellation">
               <div className="card-topline"><span>OBSERVED TRUST TOPOLOGY</span><span className="coordinates">MERIDIAN / 01</span></div>
@@ -267,7 +321,7 @@ function App() {
               <div className="boundary-grid">
                 <div className="boundary-visual" aria-label="PKCS11 protected key boundary">
                   <div className="boundary-ring boundary-ring-one" /><div className="boundary-ring boundary-ring-two" />
-                  <div className="boundary-lock">⌘</div><strong>PKCS#11</strong><small>signing boundary</small>
+                  <div className="boundary-lock">▣</div><strong>PKCS#11</strong><small>signing boundary</small><span className="boundary-visual-status"><i /> private key isolated</span>
                 </div>
                 <div className="boundary-facts">
                   <div><span>TOKEN</span><strong>{snapshot.protectedBoundary?.token_label ?? "checking"}</strong></div>
@@ -278,6 +332,7 @@ function App() {
                 <div className="boundary-copy">
                   <p>The API can request a certificate, but it never receives the CA signing key. The live panel checks the separate HSM-backed CA; the token-loss exercise remains an explicit terminal workflow because the browser should observe that boundary, not control it.</p>
                   <div className="boundary-objects"><span>OBJECTS</span>{(snapshot.protectedBoundary?.key_objects ?? ["waiting for token"]).map((object) => <code key={object}>{object}</code>)}</div>
+                  <div className="boundary-callout"><span>REQUEST PATH</span><strong>API request <b>→</b> HSM sign <b>→</b> certificate returned</strong></div>
                 </div>
               </div>
             </div>
@@ -285,10 +340,10 @@ function App() {
 
           <section className="workspace-grid" id="identities">
             <div className="panel identities-panel rounded-xl shadow-panel">
-              <div className="panel-heading"><div><SectionEyebrow number="03" label="IDENTITY REGISTRY" /><h2>Who is trusted?</h2></div><span className="panel-count">{snapshot.identities.length.toString().padStart(2, "0")} records</span></div>
+              <div className="panel-heading"><div><SectionEyebrow number="03" label="IDENTITY REGISTRY" /><h2>Who is trusted?</h2></div><span className="panel-count">{displayedIdentities.length.toString().padStart(2, "0")} latest / {snapshot.identities.length} total</span></div>
               <div className="identity-list">
                 {snapshot.identities.length === 0 && <div className="empty-state">No identities yet. Run the trust sequence to create the first synthetic agent.</div>}
-                {snapshot.identities.map((identity) => {
+                {displayedIdentities.map((identity) => {
                   const certificate = identityAction(identity);
                   return <button className={`identity-row focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-meridian-cyan ${identity.id === selectedId ? "selected" : ""}`} key={identity.id} onClick={() => setSelectedId(identity.id)}>
                     <span className={`identity-avatar ${identity.kind}`}><span>{identity.kind === "agent" ? "◌" : "⊙"}</span></span>
@@ -306,14 +361,17 @@ function App() {
               {selectedIdentity ? <>
                 <div className="detail-meta"><div><span>OWNER</span><strong>{selectedIdentity.owner}</strong></div><div><span>PURPOSE</span><strong>{selectedIdentity.purpose}</strong></div></div>
                 <div className="authority-block"><div className="authority-title"><span>AUTHORITY ENVELOPE</span><em>{selectedIdentity.allowed_actions.length} grants</em></div><div className="tag-cloud">{selectedIdentity.allowed_actions.map((action) => <span key={action}>{action}</span>)}</div></div>
-                <div className="cert-detail"><div className="cert-detail-top"><span>ACTIVE CREDENTIAL</span>{selectedActiveCertificate && <StatusPill value={selectedActiveCertificate.lifecycle_status} />}</div>{selectedActiveCertificate ? <><div className="fingerprint">{selectedActiveCertificate.fingerprint.match(/.{1,8}/g)?.join(" · ")}</div><div className="cert-detail-foot"><span>{selectedActiveCertificate.key_algorithm}</span><span>expires {formatDate(selectedActiveCertificate.not_after)}</span></div></> : <div className="cert-missing">No active certificate. Issue one to unlock policy actions.</div>}</div>
+                <div className="certificate-dossier">
+                  <div className="dossier-top"><div className="dossier-seal">✦</div><div><span>X.509 / SHORT-LIVED</span><strong>{selectedActiveCertificate ? "ACTIVE CREDENTIAL" : "CREDENTIAL SLOT"}</strong></div>{selectedActiveCertificate && <StatusPill value={selectedActiveCertificate.lifecycle_status} />}</div>
+                  {selectedActiveCertificate ? <><div className="dossier-grid"><div><span>ISSUER</span><strong>{selectedActiveCertificate.issuer}</strong></div><div><span>ALGORITHM</span><strong>{selectedActiveCertificate.key_algorithm}</strong></div><div><span>SERIAL</span><strong>{shortId(selectedActiveCertificate.serial_number)}</strong></div><div><span>EXPIRES</span><strong>{formatDate(selectedActiveCertificate.not_after)}</strong></div></div><div className="dossier-fingerprint"><span>SHA-256 FINGERPRINT</span><code>{splitFingerprint(selectedActiveCertificate.fingerprint)}</code></div></> : <div className="cert-missing">No active certificate. Issue one to unlock policy actions.</div>}
+                </div>
                 <div className="detail-actions"><button className="secondary-button rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-meridian-cyan/70" disabled={busy !== null} onClick={() => void perform("issue", () => issueCertificate(selectedIdentity.id, selectedIdentity.name), "Short-lived certificate issued.")}>{busy === "issue" ? "Issuing…" : "Issue certificate"}</button><button className="ghost-button rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-meridian-cyan/70" disabled={busy !== null || selectedIdentity.status !== "active"} onClick={() => void perform("quarantine", () => quarantineIdentity(selectedIdentity.id), "Identity quarantined.")}>Quarantine</button><button className="ghost-button danger rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-meridian-red/70" disabled={busy !== null || selectedIdentity.status === "revoked"} onClick={() => void perform("compromise", () => openCompromise(selectedIdentity.id, "operator-triggered synthetic compromise"), "Compromise contained; incident opened.")}>Simulate compromise</button></div>
               </> : <div className="detail-empty">Select an identity from the registry.</div>}
             </div>
           </section>
 
           <section className="lower-grid" id="incidents">
-            <div className="panel incidents-panel"><div className="panel-heading"><div><SectionEyebrow number="05" label="INCIDENT THEATRE" /><h2>When trust breaks.</h2></div><span className="panel-count">{snapshot.incidents.length.toString().padStart(2, "0")} stories</span></div><div className="incident-list">{snapshot.incidents.length === 0 && <div className="empty-state">No incidents. The quiet is earned by observable controls.</div>}{[...snapshot.incidents].reverse().slice(0, 4).map((incident) => { const owner = snapshot.identities.find((identity) => identity.id === incident.identity_id); return <div className={`incident-card ${incident.status}`} key={incident.id}><div className="incident-spine"><span>{incident.status === "open" ? "↯" : "✓"}</span></div><div className="incident-content"><div className="incident-top"><strong>{incident.reason}</strong><StatusPill value={incident.status} /></div><p>{owner?.name ?? shortId(incident.identity_id)} <span>·</span> opened {formatAge(incident.created_at)}</p>{incident.status === "open" ? <button className="inline-action" disabled={busy !== null} onClick={() => void perform("recover", () => recoverIncident(incident.id), "Replacement credential issued; identity recovered.")}>Begin verified recovery <span>↗</span></button> : <div className="resolved-copy">Recovered {formatDate(incident.resolved_at)} <span>· evidence complete</span></div>}</div></div>; })}</div></div>
+             <div className="panel incidents-panel"><div className="panel-heading"><div><SectionEyebrow number="05" label="ISOLATE THE UNKNOWN" /><h2>When trust breaks.</h2></div><span className="panel-count">{snapshot.incidents.length.toString().padStart(2, "0")} stories</span></div><div className="incident-list">{snapshot.incidents.length === 0 && <div className="empty-state">No incidents. The quiet is earned by observable controls.</div>}{displayedIncidents.map((incident) => { const owner = snapshot.identities.find((identity) => identity.id === incident.identity_id); const stages = incident.status === "open" ? ["presented", "unknown", "quarantined", "revoked"] : ["detected", "quarantined", "revoked", "recovered"]; const activeStage = incident.status === "open" ? 2 : 3; return <div className={`incident-card ${incident.status}`} key={incident.id}><div className="incident-spine"><span>{incident.status === "open" ? "↯" : "✓"}</span></div><div className="incident-content"><div className="incident-top"><strong>{incident.reason}</strong><StatusPill value={incident.status} /></div><p>{owner?.name ?? shortId(incident.identity_id)} <span>·</span> opened {formatAge(incident.created_at)}</p><div className="isolation-badge"><i />{incident.status === "open" ? "UNKNOWN CREDENTIAL ISOLATED" : "IDENTITY RESTORED WITH PROOF"}</div><div className="containment-track">{stages.map((stage, index) => <span className={index <= activeStage ? "done" : ""} key={stage}><i />{stage}</span>)}</div>{incident.status === "open" ? <button className="inline-action" disabled={busy !== null} onClick={() => void perform("recover", () => recoverIncident(incident.id), "Replacement credential issued; identity recovered.")}>Begin verified recovery <span>↗</span></button> : <div className="resolved-copy">Recovered {formatDate(incident.resolved_at)} <span>· evidence complete</span></div>}</div></div>; })}</div></div>
 
             <div className="panel decision-panel"><div className="panel-heading"><div><SectionEyebrow number="06" label="POLICY GATE" /><h2>Intent meets authority.</h2></div><span className="panel-count">{pendingActions.length.toString().padStart(2, "0")} pending</span></div><div className="decision-list">{pendingActions.length === 0 && <div className="empty-state">No actions waiting for a human. Run the trust sequence to open an approval gate.</div>}{pendingActions.slice(-4).reverse().map((action: ActionRequest) => { const identity = snapshot.identities.find((item) => item.id === action.identity_id); return <div className="decision-card" key={action.id}><div className="decision-mark">!</div><div className="decision-content"><div className="decision-top"><strong>{action.action}</strong><span className="risk-label">{action.risk_level} risk</span></div><p>{identity?.name ?? shortId(action.identity_id)} <span>→</span> {action.target}</p><small>{action.reason}</small><button className="approve-button" disabled={busy !== null} onClick={() => void perform("approve", () => approveAction(action.id), "Operator approval recorded; action completed.")}>Approve action <span>↗</span></button></div></div>; })}</div></div>
           </section>

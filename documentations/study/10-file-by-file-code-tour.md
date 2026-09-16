@@ -361,23 +361,25 @@ Lines 1–4 import React, ReactDOM, the root component, and CSS. Lines 6–9 fin
 - Lines 18–25 define a safe empty initial snapshot so the first render has no fake security data.
 - `formatAge` and `formatDate` guard against invalid timestamps; `shortId` abbreviates long identifiers; `tone` maps domain states plus audit verification to semantic colors.
 - `StatusPill` lines 53–55 and `SectionEyebrow` lines 57–59 are the two reusable presentational components.
-- `App` lines 61–269 owns the live screen.
-  - Lines 62–67 define snapshot, selection, notice, connection, busy, and evidence-view state.
-  - `refresh` loads the API snapshot, clears connection errors, preserves a still-existing selection, and serializes overlapping polls so a slow request cannot overwrite the screen with stale data.
+- `App` owns the live screen.
+  - Its state covers the API snapshot, selected identity, operator notice, connection error, current busy operation, demo phase, and evidence-view toggle.
+  - `DemoPhase` and `demoPhaseCopy` name the four visible phases of the showcase: registering, issuing, evaluating, and approval. They are presentation state only; the API remains authoritative.
+  - `refresh` loads the eight-resource API snapshot, clears connection errors, preserves a still-existing selection, defaults to the latest demo Alpha when present (otherwise the newest identity), and serializes overlapping polls so a slow request cannot overwrite the screen with stale data.
   - The `useEffect` at lines 80–84 performs an immediate load, starts a five-second poll, and cleans up the interval.
-  - Lines 86–98 derive selected identity/certificates, active certificate, pending approvals, open incidents, expiry radar, recovery completion, narrative step, and displayed audit rows.
+  - Derived values select the active certificate, foreground the newest twelve identities, calculate pending approvals/open incidents/expiry radar, detect certificate and containment evidence, calculate narrative progress, and build the live execution checkpoints.
   - `perform` lines 100–112 centralizes busy-state handling, notices, refresh-after-write, error display, and cleanup.
-  - `launchStory` creates unique Alpha and Beta agents, issues both certificates, performs Alpha's allowed read, records Beta's denied delete attempt, submits Alpha's high-risk rotation request, selects Alpha, refreshes, and tells the operator that the approval gate is waiting.
+  - `launchStory` creates unique Alpha and Beta agents, updates the visible phase before each network group, issues both certificates, performs Alpha's allowed read, records Beta's denied delete attempt, submits Alpha's high-risk rotation request, selects Alpha, refreshes, and tells the operator that the approval gate is waiting.
   - `identityAction` lines 147–153 finds an active credential for a registry row.
   - Lines 155–180 render the fixed rail, brand, navigation, topbar, poll indicator, and health status.
   - Lines 182–209 render the hero and CSS 3D constellation. Orbit rings, connecting lines, four live nodes, a central Meridian node, and a legend create depth without a heavy rendering library.
   - Lines 211–216 render active identities, expiry radar, incident count, and audit sequence.
   - Lines 218–223 render Observe → Decide → Contain → Recover progress; `storyStep` never pretends recovery happened.
-  - Lines 225–252 render the identity registry and selected identity panel. Rows are real buttons, selected state is explicit, permissions become tags, fingerprint/algorithm are shown, and actions call the real API.
-  - The boundary section renders live `hsm-ca` status, token/object metadata, and an explicit “not mounted” API disk-key fact; it is explanatory UI over an API health check, not a mock signing operation.
-  - Lines 254–258 render incident theatre and the policy approval gate.
-  - Lines 260–262 render the audit table, optional full sequence, hash-link indicator, verified-chain badge, and honest synthetic/local footer.
-- Line 269 exports the root component.
+  - The identity registry renders the newest twelve records for a readable opening view while showing the full total. Rows are real buttons, selected state is explicit, and permissions become tags.
+  - The selected identity panel renders a certificate dossier with issuer, algorithm, serial, expiry, and SHA-256 fingerprint. These are safe certificate metadata; private key material is never returned.
+  - The boundary section renders live `hsm-ca` status, token/object metadata, the “not mounted” API disk-key fact, and the visible `API request -> HSM sign -> certificate returned` path; it is explanatory UI over an API health check, not a mock signing operation.
+  - Incident theatre names “isolate the unknown” and renders the containment/recovery track from the actual incident status before offering the real recovery endpoint.
+  - The audit surface renders the optional full sequence, hash-link indicator, verified-chain badge, and honest synthetic/local footer.
+- The final line exports the root component.
 
 ### `apps/web/src/styles.css`
 
@@ -387,7 +389,7 @@ Lines 1–4 import React, ReactDOM, the root component, and CSS. Lines 6–9 fin
 - Rail, content, hero, metric, story, registry, detail, incident, decision, and evidence selectors provide the editorial composition.
 - `.constellation-card`, `.constellation-stage`, `.orbit-*`, `.constellation-line`, `.constellation-node`, and `.constellation-center` create the 3D scene. `perspective`, `transform-style: preserve-3d`, `translateZ`, and keyframe rotations create depth.
 - Tailwind utility classes in `App.tsx` own rounded panels, shadows, semantic focus rings, responsive utility scanning, and custom palette names. The bespoke rules remain for geometry, glow, grid background, and tuned motion.
-- Media queries collapse the grid, compress the rail, hide lower-priority columns, and convert the story track to a vertical timeline on small screens. The reduced-motion query disables animation when requested.
+- Media queries collapse the grid, convert the fixed rail into a readable top navigation below 720px, enlarge small labels, hide lower-priority columns, stack touch actions below 460px, and convert the story track to a vertical timeline on small screens. The reduced-motion query disables animation when requested.
 
 ## 9. Tests: why each helper and test exists
 
@@ -426,7 +428,7 @@ Trace `POST /identities/{id}/actions` as an exercise:
 8. The route writes an `ActionRequestRecord` and calls `AuditService.record`.
 9. If allowed, the deterministic simulator returns a result; if high risk, the result stays empty until an operator approves.
 10. SQLAlchemy commits the action and evidence together.
-11. The JSON response returns to React, `perform` refreshes the six-resource snapshot, and the policy panel/audit sequence changes.
+11. The JSON response returns to React, the action helper refreshes the eight-resource snapshot, and the policy panel/audit sequence changes.
 
 That is the core Meridian distinction: a certificate can establish which identity presented itself; policy decides what that identity may do; audit makes the decision explainable later.
 
