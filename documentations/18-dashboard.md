@@ -71,6 +71,7 @@ Or start the full local console from the project root with `docker compose up -d
 - The navigation/brand pass showed the light-mode wordmark inheriting the shell's pale Tailwind text color and the rail always marking Overview active. The layered orbit mark now has explicit ink, and the scroll-aware state keeps the selected section honest.
 - A browser recheck found that mobile tab alignment was using `scrollIntoView()` on a link inside the top rail. That could pull the document back to the rail after an anchor click. The fix scrolls only the nav element horizontally with `nav.scrollTo()` and leaves the page's section jump intact.
 - The wide-screen evidence review showed a second state bug: the evidence panel was visible while the fixed 150px reading line still belonged to Incidents. The scroll marker is now 40% of the viewport, bounded between 180px and 420px, so the selected rail step follows what the reader is actually looking at across desktop and mobile sizes.
+- Hover styling is intentionally weaker than active styling. This prevents the pointer resting over an adjacent tab from looking like a second selected section, while `:focus-visible` keeps keyboard navigation obvious.
 
 ## Problems found and fixed
 

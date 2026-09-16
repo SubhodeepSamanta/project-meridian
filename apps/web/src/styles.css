@@ -817,6 +817,9 @@ html[data-theme="light"] .inline-action:hover { background: rgba(8,125,118,.14);
 .brand-word { color: var(--ink); font-size: 15px; letter-spacing: .18em; line-height: 1; }
 .brand-sub { align-self: start; margin-top: 5px; color: var(--cyan); font-size: 9px; line-height: 1.2; }
 .nav-link { color: var(--muted); }
+.nav-link:hover { color: var(--ink); border-color: transparent; background: transparent; }
+.nav-link.active, .nav-link.active:hover { color: var(--cyan); border-color: var(--line); background: linear-gradient(90deg, rgba(98,231,223,.12), transparent); }
+.nav-link:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .nav-link.active { box-shadow: inset 2px 0 var(--cyan); }
 .nav-link[aria-current="page"] { font-weight: 700; }
 .hero-grid, .boundary-section, .workspace-grid, .lower-grid, .evidence-section { scroll-margin-top: 22px; }
